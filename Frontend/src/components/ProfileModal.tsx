@@ -1,4 +1,3 @@
-// ProfileModal.tsx
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -8,13 +7,8 @@ import { Label } from './ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Upload, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-
-interface ProfileModalProps {
-  open: boolean;
-  onClose: () => void;
-  onLogout: () => void;
-  token: string; // JWT token
-}
+import { BenchmarkChart } from './BenchmarkChart';
+import { API } from '../api/axiosConfig'; // your axios instance
 
 interface UserData {
   id: number;
@@ -23,26 +17,35 @@ interface UserData {
   avatar?: string;
 }
 
-interface BenchmarkResult {
-  type: string;
-  timestamp: string;
-  overallScore: number;
+interface BenchmarkMetric {
+  time: number;
+  cpu: number;
+  gpu: number;
+  temp: number;
 }
 
-export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalProps) {
+interface BenchmarkResult {
+  id: number;
+  type: string;
+  timestamp: string;
+  metrics: BenchmarkMetric[];
+}
+
+interface ProfileModalProps {
+  open: boolean;
+  onClose: () => void;
+  onLogout: () => void;
+}
+
+export function ProfileModal({ open, onClose, onLogout }: ProfileModalProps) {
   const [user, setUser] = useState<UserData | null>(null);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState<UserData>({ id: 0, username: '', email: '', avatar: '' });
   const [savedResults, setSavedResults] = useState<BenchmarkResult[]>([]);
 
-  // Fetch profile from backend
   const fetchProfile = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/users/profile/', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch profile');
-      const data = await res.json();
+      const { data } = await API.get('/users/profile/');
       setUser(data);
       setFormData({ ...data, avatar: data.avatar || '' });
     } catch (err) {
@@ -51,18 +54,14 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
     }
   };
 
-  // Fetch saved benchmarks (optional, fallback to localStorage)
   const fetchBenchmarks = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/benchmarks/', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch benchmarks');
-      const data = await res.json();
+      const { data } = await API.get('/benchmarks/');
       setSavedResults(data);
-    } catch {
-      const local = JSON.parse(localStorage.getItem('sdu_benchmarks') || '[]');
-      setSavedResults(local);
+    } catch (err) {
+      toast.error('Failed to load benchmarks');
+      console.error(err);
+      setSavedResults([]);
     }
   };
 
@@ -75,17 +74,11 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
 
   const handleSave = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/users/profile/update/', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ username: formData.username, email: formData.email }),
+      const { data } = await API.put('/users/profile/update/', {
+        username: formData.username,
+        email: formData.email,
       });
-      if (!res.ok) throw new Error('Failed to update profile');
-      const updatedUser = await res.json();
-      setUser(updatedUser);
+      setUser(data);
       setEditing(false);
       toast.success('Profile updated successfully');
     } catch (err) {
@@ -106,11 +99,7 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
   const handleDeleteAccount = async () => {
     if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
     try {
-      const res = await fetch('http://127.0.0.1:8000/users/profile/delete/', {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to delete account');
+      await API.delete('/users/profile/delete/');
       toast.success('Account deleted');
       onLogout();
     } catch (err) {
@@ -131,10 +120,10 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
         </DialogHeader>
 
         <div className="space-y-4 py-3">
-          {/* Avatar Section */}
+          {/* Avatar & Info */}
           <div className="flex items-center gap-4">
             <div className="relative">
-              <Avatar className="w-20 h-20 border-2 border-red-600" style={{ boxShadow: '0 0 30px rgba(255, 0, 0, 0.5), 0 0 60px rgba(255, 0, 0, 0.3)' }}>
+              <Avatar className="w-20 h-20 border-2 border-red-600" style={{ boxShadow: '0 0 30px rgba(255,0,0,0.5),0 0 60px rgba(255,0,0,0.3)' }}>
                 <AvatarImage src={editing ? formData.avatar : user.avatar} />
                 <AvatarFallback>{user.username[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
@@ -144,7 +133,7 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
                   whileTap={{ scale: 0.9 }}
                   htmlFor="profile-avatar-upload"
                   className="absolute bottom-0 right-0 bg-red-600 p-1.5 rounded-full cursor-pointer hover:bg-red-700"
-                  style={{ boxShadow: '0 0 15px rgba(255, 0, 0, 0.5)' }}
+                  style={{ boxShadow: '0 0 15px rgba(255,0,0,0.5)' }}
                 >
                   <Upload className="w-3 h-3" />
                   <input id="profile-avatar-upload" type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
@@ -157,11 +146,11 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
                 <div className="space-y-2">
                   <div>
                     <Label htmlFor="edit-username" className="text-xs">Username</Label>
-                    <Input id="edit-username" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="bg-black border-red-600/50 text-white text-sm h-8" style={{ boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)' }} />
+                    <Input id="edit-username" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="bg-black border-red-600/50 text-white text-sm h-8" />
                   </div>
                   <div>
                     <Label htmlFor="edit-email" className="text-xs">Email</Label>
-                    <Input id="edit-email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="bg-black border-red-600/50 text-white text-sm h-8" style={{ boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)' }} />
+                    <Input id="edit-email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="bg-black border-red-600/50 text-white text-sm h-8" />
                   </div>
                 </div>
               ) : (
@@ -174,34 +163,31 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
                     <div className="text-gray-400 text-xs">Email</div>
                     <div className="text-white text-sm">{user.email}</div>
                   </div>
-                  <div>
-                    <div className="text-gray-400 text-xs">Joined</div>
-                    <div className="text-white text-sm">{new Date(user.joinedDate || Date.now()).toLocaleDateString()}</div>
-                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Saved Results */}
-          <div className="border-t border-gray-700 pt-4">
+          {/* Saved Benchmarks */}
+          <div className="border-t border-gray-700 pt-4 space-y-4">
             <h4 className="text-white mb-3 text-sm" style={{ fontFamily: 'Orbitron, sans-serif' }}>
               SAVED BENCHMARK RESULTS ({savedResults.length})
             </h4>
+
             {savedResults.length === 0 ? (
               <div className="text-gray-400 text-xs">No saved results yet</div>
             ) : (
-              <div className="space-y-2 max-h-32 overflow-y-auto">
-                {savedResults.map((result, index) => (
-                  <motion.div key={index} whileHover={{ boxShadow: '0 0 20px rgba(255, 0, 0, 0.3)' }} className="bg-black/50 border border-red-600/30 p-2 rounded flex justify-between items-center">
-                    <div>
-                      <div className="text-white capitalize text-xs">{result.type} Benchmark</div>
-                      <div className="text-gray-400 text-xs">{new Date(result.timestamp).toLocaleDateString()}</div>
-                    </div>
-                    <div className="text-red-500 text-xs">{result.overallScore}</div>
-                  </motion.div>
-                ))}
-              </div>
+              savedResults.map((result) => (
+                <div key={result.id} className="bg-black/50 border border-red-600/30 p-2 rounded">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="text-white text-xs capitalize">{result.type} Benchmark</div>
+                    <div className="text-red-500 text-xs">{new Date(result.timestamp).toLocaleDateString()}</div>
+                  </div>
+                  <div className="h-48">
+                    <BenchmarkChart data={result.metrics} />
+                  </div>
+                </div>
+              ))
             )}
           </div>
 
@@ -210,7 +196,7 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
             {editing ? (
               <>
                 <motion.div className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button onClick={handleSave} className="w-full bg-red-600 hover:bg-red-700 text-white transition-all duration-300 text-sm h-9" style={{ boxShadow: '0 0 25px rgba(255, 0, 0, 0.5)' }}>
+                  <Button onClick={handleSave} className="w-full bg-red-600 hover:bg-red-700 text-white transition-all duration-300 text-sm h-9">
                     <Save className="mr-2 h-3 w-3" /> Save Changes
                   </Button>
                 </motion.div>
@@ -221,10 +207,10 @@ export function ProfileModal({ open, onClose, onLogout, token }: ProfileModalPro
             ) : (
               <>
                 <motion.div className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button onClick={() => setEditing(true)} className="w-full bg-transparent border-2 border-red-600 text-white hover:bg-red-600/20 transition-all duration-300 text-sm h-9" style={{ boxShadow: '0 0 25px rgba(255, 0, 0, 0.4)' }}>Edit Profile</Button>
+                  <Button onClick={() => setEditing(true)} className="w-full bg-transparent border-2 border-red-600 text-white hover:bg-red-600/20 transition-all duration-300 text-sm h-9">Edit Profile</Button>
                 </motion.div>
                 <motion.div className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button onClick={handleDeleteAccount} variant="destructive" className="w-full text-sm h-9" style={{ boxShadow: '0 0 20px rgba(220, 38, 38, 0.4)' }}>
+                  <Button onClick={handleDeleteAccount} variant="destructive" className="w-full text-sm h-9">
                     <Trash2 className="mr-2 h-3 w-3" /> Delete Account
                   </Button>
                 </motion.div>

@@ -1,4 +1,3 @@
-//src/App.tsx/
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AuthScreen } from "./components/AuthScreen";
@@ -30,13 +29,12 @@ export default function App() {
     getProfile()
       .then((data) => setUser(data))
       .catch(() => {
-        // invalid or expired token
         localStorage.removeItem("sdu_user");
       })
       .finally(() => setLoading(false));
   }, []);
 
-  // 🔐 Handle login
+  // Handle login
   const handleLogin = async (credentials: { username: string; password: string }) => {
     try {
       const tokens = await loginUser(credentials);
@@ -50,7 +48,7 @@ export default function App() {
     }
   };
 
-  // 🆕 Handle signup
+  // Handle signup
   const handleSignup = async (data: { username: string; email: string; password: string }) => {
     try {
       await signupUser(data);
@@ -61,14 +59,13 @@ export default function App() {
     }
   };
 
-  // 🚪 Handle logout
+  // Handle logout
   const handleLogout = () => {
     localStorage.removeItem("sdu_user");
     setUser(null);
     toast.success("Logged out successfully");
   };
 
-  // ⏳ Loading screen
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -83,7 +80,6 @@ export default function App() {
     );
   }
 
-  // 🎨 Main render
   return (
     <>
       <Toaster position="top-right" theme="dark" />

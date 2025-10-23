@@ -69,10 +69,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                   ? 'text-red-500 border-b-2 border-red-500'
                   : 'text-gray-400 hover:text-white'
               }`}
-              style={{ 
-                fontFamily: 'Orbitron, sans-serif',
-                textShadow: activeTab === 'overview' ? '0 0 15px #ff0033' : 'none'
-              }}
+              style={{ fontFamily: 'Orbitron, sans-serif', textShadow: activeTab === 'overview' ? '0 0 15px #ff0033' : 'none' }}
             >
               SYSTEM OVERVIEW
             </motion.button>
@@ -85,10 +82,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                   ? 'text-red-500 border-b-2 border-red-500'
                   : 'text-gray-400 hover:text-white'
               }`}
-              style={{ 
-                fontFamily: 'Orbitron, sans-serif',
-                textShadow: activeTab === 'analysis' ? '0 0 15px #ff0033' : 'none'
-              }}
+              style={{ fontFamily: 'Orbitron, sans-serif', textShadow: activeTab === 'analysis' ? '0 0 15px #ff0033' : 'none' }}
             >
               ANALYSIS & UPGRADES
             </motion.button>
@@ -109,31 +103,19 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
               </motion.button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-[#0a0a0a] border-red-600 text-white" style={{ boxShadow: '0 0 30px rgba(255, 0, 0, 0.5)' }}>
-              <DropdownMenuItem
-                onClick={() => setShowProfile(true)}
-                className="cursor-pointer hover:bg-red-600/20"
-              >
+              <DropdownMenuItem onClick={() => setShowProfile(true)} className="cursor-pointer hover:bg-red-600/20">
                 <User className="mr-2 h-4 w-4" />
                 View Profile
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setShowProfile(true)}
-                className="cursor-pointer hover:bg-red-600/20"
-              >
+              <DropdownMenuItem onClick={() => setShowProfile(true)} className="cursor-pointer hover:bg-red-600/20">
                 <Settings className="mr-2 h-4 w-4" />
                 Edit Profile
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setShowProfile(true)}
-                className="cursor-pointer hover:bg-red-600/20"
-              >
+              <DropdownMenuItem onClick={() => setShowProfile(true)} className="cursor-pointer hover:bg-red-600/20">
                 <Save className="mr-2 h-4 w-4" />
                 Saved Results
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={onLogout}
-                className="cursor-pointer hover:bg-red-600/20 text-red-500"
-              >
+              <DropdownMenuItem onClick={onLogout} className="cursor-pointer hover:bg-red-600/20 text-red-500">
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </DropdownMenuItem>
@@ -151,20 +133,11 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'overview' ? (
-            <SystemOverview user={user} />
-          ) : (
-            <AnalysisUpgrades user={user} />
-          )}
+          {activeTab === 'overview' ? <SystemOverview /> : <AnalysisUpgrades />}
         </motion.div>
       </div>
 
-      <ProfileModal
-        user={user}
-        open={showProfile}
-        onClose={() => setShowProfile(false)}
-        onLogout={onLogout}
-      />
+      <ProfileModal open={showProfile} onClose={() => setShowProfile(false)} onLogout={onLogout} />
     </div>
   );
 }

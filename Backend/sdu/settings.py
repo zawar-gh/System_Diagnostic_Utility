@@ -27,7 +27,8 @@ INSTALLED_APPS = [
 
     # Local
     'diagnostics',
-    'users'
+    'users',
+    'benchmarks',
 ]
 
 MIDDLEWARE = [

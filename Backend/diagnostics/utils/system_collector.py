@@ -2,29 +2,47 @@ import psutil, platform, cpuinfo, wmi
 
 def get_system_info():
     try:
+        cpu_usage = psutil.cpu_percent(interval=1)
+        ram = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
         system_info = {
-            "os": platform.system(),
-            "os_version": platform.version(),
-            "processor": cpuinfo.get_cpu_info().get('brand_raw', 'Unknown'),
-            "cpu_cores": psutil.cpu_count(logical=False),
-            "cpu_threads": psutil.cpu_count(logical=True),
-            "total_ram_gb": round(psutil.virtual_memory().total / (1024 ** 3), 2),
-            "disk_total_gb": round(psutil.disk_usage('/').total / (1024 ** 3), 2),
-            "gpu_info": [],
+            "os": {
+                "name": platform.system(),
+                "version": platform.version(),
+                "build": platform.release()
+            },
+            "cpu": {
+                "model": cpuinfo.get_cpu_info().get('brand_raw', 'Unknown'),
+                "cores": psutil.cpu_count(logical=False),
+                "threads": psutil.cpu_count(logical=True),
+                "usage": cpu_usage
+            },
+            "gpu": {},  # will fill below
+            "ram": {
+                "total": round(ram.total / (1024 ** 3), 2),
+                "usage": ram.percent,
+                "speed": "Unknown"  # psutil cannot get speed; optional
+            },
+            "storage": {
+                "type": "Unknown",  # Optional, could detect SSD/HDD
+                "size": round(disk.total / (1024 ** 3), 2),
+                "usage": disk.percent
+            }
         }
 
-        # Use WMI for GPU info (works on Windows for Intel, AMD, NVIDIA)
+        # GPU info (first GPU only)
         try:
-            w = wmi.WMI()
-            for gpu in w.Win32_VideoController():
-                system_info["gpu_info"].append({
-                    "name": gpu.Name,
-                    "driver_version": gpu.DriverVersion,
-                    "video_processor": gpu.VideoProcessor,
-                    "memory_gb": round(int(gpu.AdapterRAM) / (1024 ** 3), 2) if gpu.AdapterRAM else None,
-                })
+            wmi_obj = wmi.WMI()
+            gpu_list = wmi_obj.Win32_VideoController()
+            if gpu_list:
+                gpu = gpu_list[0]
+                system_info["gpu"] = {
+                    "model": gpu.Name,
+                    "vram": round(int(gpu.AdapterRAM)/(1024**3),2) if gpu.AdapterRAM else None,
+                    "utilization": 0  # real-time usage requires additional monitoring
+                }
         except Exception as gpu_err:
-            system_info["gpu_info"] = [{"error": str(gpu_err)}]
+            system_info["gpu"] = {"error": str(gpu_err)}
 
         return system_info
     except Exception as e:
