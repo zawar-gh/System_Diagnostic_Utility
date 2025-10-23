@@ -1,0 +1,130 @@
+# ========================================
+# Global ignores
+# ========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.env
+*.DS_Store
+.env
+.env.local
+.vscode/
+.idea/
+*.bak
+*.swp
+*.tmp
+
+# ========================================
+# Python / Django
+# ========================================
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+staticfiles/
+media/
+db.sqlite3
+*.mo
+
+# Django local settings or secrets
+Backend/sdu/settings_local.py
+Backend/sdu/__pycache__/
+
+# Cache
+*.cache
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+celerybeat-schedule
+instance/
+.scrapy/
+
+# ========================================
+# Node / React Frontend
+# ========================================
+# Dependencies
+Frontend/node_modules/
+Frontend/.pnp/
+Frontend/.pnp.js
+Frontend/pnpm-lock.yaml
+Frontend/yarn.lock
+Frontend/package-lock.json
+
+# Build output
+Frontend/dist/
+Frontend/build/
+Frontend/.next/
+Frontend/out/
+
+# Testing / Coverage
+Frontend/coverage/
+Frontend/.nyc_output/
+
+# Env files
+Frontend/.env
+Frontend/.env.development.local
+Frontend/.env.test.local
+Frontend/.env.production.local
+
+# Logs
+Frontend/npm-debug.log*
+Frontend/yarn-debug.log*
+Frontend/yarn-error.log*
+Frontend/pnpm-debug.log*
+
+# ========================================
+# OS-specific
+# ========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ========================================
+# Editor-specific
+# ========================================
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ========================================
+# Miscellaneous
+# ========================================
+# Figma, design files, exports
+*.fig
+*.psd
+*.ai
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+
+# ========================================
+# Custom project-specific
+# ========================================
+# Backend compiled assets
+Backend/static/
+Backend/media/
+# Frontend local cache
+Frontend/.parcel-cache/
+Frontend/.eslintcache/
