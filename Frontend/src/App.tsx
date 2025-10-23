@@ -1,48 +1,81 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { AuthScreen } from './components/AuthScreen';
-import { Dashboard } from './components/Dashboard';
-import { Toaster } from './components/ui/sonner';
-import { toast } from 'sonner@2.0.3';
+//src/App.tsx/
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { AuthScreen } from "./components/AuthScreen";
+import { Dashboard } from "./components/Dashboard";
+import { Toaster } from "./components/ui/sonner";
+import { toast } from "sonner@2.0.3";
+
+import { loginUser, signupUser, getProfile } from "./services/authService";
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Load saved session on app start
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem('sdu_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const stored = localStorage.getItem("sdu_user");
+    if (!stored) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    const { access } = JSON.parse(stored);
+    if (!access) {
+      setLoading(false);
+      return;
+    }
+
+    // Try to fetch user profile using stored JWT
+    getProfile()
+      .then((data) => setUser(data))
+      .catch(() => {
+        // invalid or expired token
+        localStorage.removeItem("sdu_user");
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleLogin = (userData: any) => {
-    setUser(userData);
-    localStorage.setItem('sdu_user', JSON.stringify(userData));
-    toast.success('Login successful');
+  // 🔐 Handle login
+  const handleLogin = async (credentials: { username: string; password: string }) => {
+    try {
+      const tokens = await loginUser(credentials);
+      localStorage.setItem("sdu_user", JSON.stringify(tokens));
+      const profile = await getProfile();
+      setUser(profile);
+      toast.success("Login successful");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Invalid credentials");
+    }
   };
 
-  const handleSignup = (userData: any) => {
-    setUser(userData);
-    localStorage.setItem('sdu_user', JSON.stringify(userData));
-    toast.success('Account created successfully');
+  // 🆕 Handle signup
+  const handleSignup = async (data: { username: string; email: string; password: string }) => {
+    try {
+      await signupUser(data);
+      toast.success("Account created successfully! Please log in.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.detail || "Signup failed");
+    }
   };
 
+  // 🚪 Handle logout
   const handleLogout = () => {
+    localStorage.removeItem("sdu_user");
     setUser(null);
-    localStorage.removeItem('sdu_user');
-    toast.success('Logged out successfully');
+    toast.success("Logged out successfully");
   };
 
+  // ⏳ Loading screen
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 1.5, repeat: Infinity }}
-          className="text-white"
+          className="text-white text-lg"
         >
           Loading...
         </motion.div>
@@ -50,6 +83,7 @@ export default function App() {
     );
   }
 
+  // 🎨 Main render
   return (
     <>
       <Toaster position="top-right" theme="dark" />

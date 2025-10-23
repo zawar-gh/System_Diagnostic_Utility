@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { motion } from 'motion/react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Upload } from 'lucide-react';
-import { MatrixBackground } from './MatrixBackground';
+import { useState } from "react";
+import { motion } from "motion/react";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Upload } from "lucide-react";
+import { MatrixBackground } from "./MatrixBackground";
 
 interface AuthScreenProps {
   onLogin: (user: any) => void;
@@ -15,49 +16,51 @@ interface AuthScreenProps {
 export function AuthScreen({ onLogin, onSignup }: AuthScreenProps) {
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
-  const [loginData, setLoginData] = useState({ username: '', password: '' });
+  const [loginData, setLoginData] = useState({ username: "", password: "" });
   const [signupData, setSignupData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    avatar: ''
+    username: "",
+    email: "",
+    password: "",
+    avatar: "",
   });
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      const user = {
-        id: Date.now(),
-        username: loginData.username,
-        email: `${loginData.username}@example.com`,
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
-        joinedDate: new Date().toISOString()
-      };
-      onLogin(user);
-      setLoading(false);
-      setShowLogin(false);
-    }, 1000);
-  };
 
-  const handleSignup = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      const user = {
-        id: Date.now(),
-        username: signupData.username,
-        email: signupData.email,
-        avatar: signupData.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
-        joinedDate: new Date().toISOString()
-      };
-      onSignup(user);
-      setLoading(false);
-      setShowSignup(false);
-    }, 1000);
-  };
+  // 🧠 Login Handler
+  const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  try {
+    await onLogin(loginData);
+    setShowLogin(false);
+  } catch (error: any) {
+    console.error("Login error:", error);
+    toast.error(error.response?.data?.detail || "Login failed. Try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
+
+  // 🧠 Signup Handler (Real API)
+  const handleSignup = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  try {
+    const { username, email, password } = signupData;
+    await onSignup({ username, email, password });
+    toast.success("Account created successfully!");
+    setShowSignup(false);
+  } catch (error: any) {
+    console.error("Signup error:", error);
+    toast.error(error.response?.data?.detail || "Signup failed. Try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // 🧠 Avatar Upload
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -72,20 +75,21 @@ export function AuthScreen({ onLogin, onSignup }: AuthScreenProps) {
   return (
     <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
       <MatrixBackground />
-      
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
         className="relative z-10 text-center"
       >
+        {/* Title */}
         <motion.div
           animate={{
             textShadow: [
-              '0 0 20px #ff0000',
-              '0 0 40px #ff0000',
-              '0 0 20px #ff0000'
-            ]
+              "0 0 20px #ff0000",
+              "0 0 40px #ff0000",
+              "0 0 20px #ff0000",
+            ],
           }}
           transition={{ duration: 2, repeat: Infinity }}
           className="mb-12"
@@ -93,12 +97,11 @@ export function AuthScreen({ onLogin, onSignup }: AuthScreenProps) {
           <h1
             className="mb-4"
             style={{
-              fontSize: '4rem',
-              fontFamily: 'Orbitron, sans-serif',
-              background: 'linear-gradient(90deg, #ff0000, #ff4d4d)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
+              fontSize: "4rem",
+              fontFamily: "Orbitron, sans-serif",
+              background: "linear-gradient(90deg, #ff0000, #ff4d4d)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
             }}
           >
             SYSTEM DIAGNOSTIC
@@ -106,48 +109,29 @@ export function AuthScreen({ onLogin, onSignup }: AuthScreenProps) {
           <h2
             className="text-white"
             style={{
-              fontSize: '2rem',
-              fontFamily: 'Orbitron, sans-serif',
-              letterSpacing: '0.3em'
+              fontSize: "2rem",
+              fontFamily: "Orbitron, sans-serif",
+              letterSpacing: "0.3em",
             }}
           >
             UTILITY
           </h2>
         </motion.div>
 
+        {/* Buttons */}
         <div className="flex gap-6 justify-center">
-          <motion.div
-            whileHover={{ 
-              scale: 1.05,
-              boxShadow: '0 0 40px rgba(255, 0, 0, 0.6), 0 0 80px rgba(255, 0, 0, 0.3)'
-            }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button
               onClick={() => setShowLogin(true)}
-              className="bg-transparent border-2 border-red-600 text-white hover:bg-red-600/30 transition-all duration-300 px-8 py-6"
-              style={{
-                boxShadow: '0 0 30px rgba(255, 0, 0, 0.5), 0 0 60px rgba(255, 0, 0, 0.3)',
-                fontFamily: 'Orbitron, sans-serif'
-              }}
+              className="bg-transparent border-2 border-red-600 text-white hover:bg-red-600/30 px-8 py-6 transition-all duration-300"
             >
               LOGIN
             </Button>
           </motion.div>
-          <motion.div
-            whileHover={{ 
-              scale: 1.05,
-              boxShadow: '0 0 40px rgba(255, 0, 0, 0.6), 0 0 80px rgba(255, 0, 0, 0.3)'
-            }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button
               onClick={() => setShowSignup(true)}
-              className="bg-transparent border-2 border-red-600 text-white hover:bg-red-600/30 transition-all duration-300 px-8 py-6"
-              style={{
-                boxShadow: '0 0 30px rgba(255, 0, 0, 0.5), 0 0 60px rgba(255, 0, 0, 0.3)',
-                fontFamily: 'Orbitron, sans-serif'
-              }}
+              className="bg-transparent border-2 border-red-600 text-white hover:bg-red-600/30 px-8 py-6 transition-all duration-300"
             >
               SIGN UP
             </Button>
@@ -155,167 +139,120 @@ export function AuthScreen({ onLogin, onSignup }: AuthScreenProps) {
         </div>
       </motion.div>
 
-      {/* Login Modal */}
+      {/* Login Dialog */}
       <Dialog open={showLogin} onOpenChange={setShowLogin}>
-        <DialogContent className="bg-[#0a0a0a] border-2 border-red-600 text-white" style={{ boxShadow: '0 0 50px rgba(255, 0, 0, 0.5)' }}>
+        <DialogContent className="bg-[#0a0a0a] border-2 border-red-600 text-white">
           <DialogHeader>
-            <DialogTitle className="text-red-500" style={{ fontFamily: 'Orbitron, sans-serif', textShadow: '0 0 20px #ff0033' }}>
-              LOGIN
-            </DialogTitle>
+            <DialogTitle className="text-red-500">LOGIN</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <Label htmlFor="login-username">Username</Label>
+              <Label>Username</Label>
               <Input
-                id="login-username"
                 value={loginData.username}
-                onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-                className="bg-black border-red-600/50 text-white focus:border-red-600"
-                style={{ boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)' }}
+                onChange={(e) =>
+                  setLoginData({ ...loginData, username: e.target.value })
+                }
                 required
               />
             </div>
             <div>
-              <Label htmlFor="login-password">Password</Label>
+              <Label>Password</Label>
               <Input
-                id="login-password"
                 type="password"
                 value={loginData.password}
-                onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                className="bg-black border-red-600/50 text-white focus:border-red-600"
-                style={{ boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)' }}
+                onChange={(e) =>
+                  setLoginData({ ...loginData, password: e.target.value })
+                }
                 required
               />
             </div>
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <Button
+              type="submit"
+              className="w-full bg-red-600 hover:bg-red-700"
+              disabled={loading}
             >
-              <Button
-                type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-white transition-all duration-300"
-                disabled={loading}
-                style={{ boxShadow: '0 0 25px rgba(255, 0, 0, 0.5)' }}
-              >
-                {loading ? (
-                  <motion.div
-                    animate={{ opacity: [0.5, 1, 0.5] }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                  >
-                    Loading...
-                  </motion.div>
-                ) : (
-                  'LOGIN'
-                )}
-              </Button>
-            </motion.div>
-            <p className="text-center text-sm text-gray-400">
-              Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLogin(false);
-                  setShowSignup(true);
-                }}
-                className="text-red-500 hover:text-red-400"
-              >
-                Sign up
-              </button>
-            </p>
+              {loading ? "Loading..." : "LOGIN"}
+            </Button>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Signup Modal */}
+      {/* Signup Dialog */}
       <Dialog open={showSignup} onOpenChange={setShowSignup}>
-        <DialogContent className="bg-[#0a0a0a] border-2 border-red-600 text-white" style={{ boxShadow: '0 0 50px rgba(255, 0, 0, 0.5)' }}>
+        <DialogContent className="bg-[#0a0a0a] border-2 border-red-600 text-white">
           <DialogHeader>
-            <DialogTitle className="text-red-500" style={{ fontFamily: 'Orbitron, sans-serif', textShadow: '0 0 20px #ff0033' }}>
-              CREATE ACCOUNT
-            </DialogTitle>
+            <DialogTitle className="text-red-500">CREATE ACCOUNT</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSignup} className="space-y-4">
             <div className="flex justify-center">
-              <div className="relative">
-                <label
-                  htmlFor="avatar-upload"
-                  className="cursor-pointer block w-24 h-24 rounded-full border-2 border-red-600 overflow-hidden bg-black"
-                  style={{ boxShadow: '0 0 30px rgba(255, 0, 0, 0.5)' }}
-                >
-                  {signupData.avatar ? (
-                    <img src={signupData.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Upload className="w-8 h-8 text-red-500" />
-                    </div>
-                  )}
-                </label>
-                <input
-                  id="avatar-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                />
-              </div>
+              <label
+                htmlFor="avatar-upload"
+                className="cursor-pointer block w-24 h-24 rounded-full border-2 border-red-600 overflow-hidden bg-black"
+              >
+                {signupData.avatar ? (
+                  <img
+                    src={signupData.avatar}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Upload className="w-8 h-8 text-red-500" />
+                  </div>
+                )}
+              </label>
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
             </div>
+
             <div>
-              <Label htmlFor="signup-username">Username</Label>
+              <Label>Username</Label>
               <Input
-                id="signup-username"
                 value={signupData.username}
-                onChange={(e) => setSignupData({ ...signupData, username: e.target.value })}
-                className="bg-black border-red-600/50 text-white focus:border-red-600"
-                style={{ boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)' }}
+                onChange={(e) =>
+                  setSignupData({ ...signupData, username: e.target.value })
+                }
                 required
               />
             </div>
+
             <div>
-              <Label htmlFor="signup-email">Email</Label>
+              <Label>Email</Label>
               <Input
-                id="signup-email"
                 type="email"
                 value={signupData.email}
-                onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
-                className="bg-black border-red-600/50 text-white focus:border-red-600"
-                style={{ boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)' }}
+                onChange={(e) =>
+                  setSignupData({ ...signupData, email: e.target.value })
+                }
                 required
               />
             </div>
+
             <div>
-              <Label htmlFor="signup-password">Password</Label>
+              <Label>Password</Label>
               <Input
-                id="signup-password"
                 type="password"
                 value={signupData.password}
-                onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
-                className="bg-black border-red-600/50 text-white focus:border-red-600"
-                style={{ boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)' }}
+                onChange={(e) =>
+                  setSignupData({ ...signupData, password: e.target.value })
+                }
                 required
               />
             </div>
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+
+            <Button
+              type="submit"
+              className="w-full bg-red-600 hover:bg-red-700"
+              disabled={loading}
             >
-              <Button
-                type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-white transition-all duration-300"
-                disabled={loading}
-                style={{ boxShadow: '0 0 25px rgba(255, 0, 0, 0.5)' }}
-              >
-                {loading ? (
-                  <motion.div
-                    animate={{ opacity: [0.5, 1, 0.5] }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                  >
-                    Creating...
-                  </motion.div>
-                ) : (
-                  'CREATE ACCOUNT'
-                )}
-              </Button>
-            </motion.div>
+              {loading ? "Creating..." : "CREATE ACCOUNT"}
+            </Button>
           </form>
         </DialogContent>
       </Dialog>
