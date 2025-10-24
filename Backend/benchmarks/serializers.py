@@ -1,6 +1,7 @@
-#benchmarks/serializers.py
+# benchmarks/serializers.py
 from rest_framework import serializers
 from .models import Benchmark, BenchmarkMetric
+from users.models import UserSpecs
 
 class BenchmarkMetricSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,3 +17,9 @@ class BenchmarkSerializer(serializers.ModelSerializer):
             'id', 'type', 'timestamp', 'cpu_model', 'gpu_model', 'ram_gb',
             'cpu_score', 'gpu_score', 'overall_score', 'avg_temp', 'metrics'
         ]
+
+
+class UserSpecsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSpecs
+        fields = ['cpu_model', 'gpu_model', 'ram_gb', 'storage_gb', 'last_updated']
