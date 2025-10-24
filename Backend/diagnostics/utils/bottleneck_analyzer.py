@@ -1,4 +1,4 @@
-#util/bottleneck_calculator
+#diagnostics/util/bottleneck_calculator
 def analyze_bottlenecks(system_info):
     """
     Analyze system specs and detect basic hardware bottlenecks.

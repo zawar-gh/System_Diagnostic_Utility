@@ -1,3 +1,4 @@
+#diagnostics/utils/system_collector.py
 import psutil, platform, cpuinfo, wmi, pythoncom
 
 def format_value(value, unit=None):

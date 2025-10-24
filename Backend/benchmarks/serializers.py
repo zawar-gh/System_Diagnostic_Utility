@@ -12,4 +12,7 @@ class BenchmarkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Benchmark
-        fields = ['id', 'type', 'timestamp', 'metrics']
+        fields = [
+            'id', 'type', 'timestamp', 'cpu_model', 'gpu_model', 'ram_gb',
+            'cpu_score', 'gpu_score', 'overall_score', 'avg_temp', 'metrics'
+        ]
