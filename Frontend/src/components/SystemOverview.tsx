@@ -34,12 +34,14 @@ export function SystemOverview() {
   const [benchmarkType, setBenchmarkType] = useState<string>('gaming');
 
   // Fetch system info from backend
-  const fetchSystemData = async () => {
+  const fetchSystemData = async (cache: boolean = true) => {
     setScanning(true);
     try {
       const { data } = await API.get('/diagnostics/collect/');
       setSystemData(data);
       toast.success('System info loaded');
+
+      if (cache) localStorage.setItem('systemData', JSON.stringify(data));
     } catch (err) {
       console.error(err);
       toast.error('Failed to load system info');
@@ -61,13 +63,17 @@ export function SystemOverview() {
   };
 
   useEffect(() => {
-    fetchSystemData();
+    const cachedData = localStorage.getItem('systemData');
+    if (cachedData) {
+      setSystemData(JSON.parse(cachedData));
+    } else {
+      fetchSystemData();
+    }
     fetchBenchmarks();
   }, []);
 
-  const handleRescan = fetchSystemData;
+  const handleRescan = () => fetchSystemData();
 
-  // Trigger benchmark run
   const handleBenchmark = async (type: string) => {
     setBenchmarkType(type);
     setBenchmarking(true);
@@ -78,7 +84,6 @@ export function SystemOverview() {
     }, 100);
 
     try {
-      // Example dummy metrics
       const metrics: BenchmarkMetric[] = [
         { time: 0, cpu: 20, gpu: 15, temp: 35 },
         { time: 30, cpu: 50, gpu: 45, temp: 50 },
@@ -107,32 +112,68 @@ export function SystemOverview() {
     }
   };
 
-  if (!systemData) return <div className="text-white">Loading system info...</div>;
+  if (!systemData) return <div className="text-green-400 font-mono">Loading system info...</div>;
 
-  const SystemCard = ({ icon: Icon, title, data, color, usage }: any) => (
-    <motion.div whileHover={{ scale: 1.05, boxShadow: `0 0 50px ${color}80,0 0 80px ${color}40` }} whileTap={{ scale: 0.98 }}>
-      <Card className="bg-[#1a1a1a] border-2 p-4 relative overflow-hidden h-full" style={{ borderColor: color, boxShadow: `0 0 30px ${color}50,0 0 60px ${color}20` }}>
+const SystemCard = ({ icon: Icon, title, data, color, usage }: any) => {
+  const fields: { key: string; label: string }[] = [
+    { key: 'name', label: 'NAME' },
+    { key: 'version', label: 'VERSION' },
+    { key: 'build', label: 'BUILD' },
+    { key: 'model', label: 'MODEL' },
+    { key: 'cores', label: 'CORES' },
+    { key: 'threads', label: 'THREADS' },
+    { key: 'usage', label: 'USAGE' },
+    { key: 'total', label: 'TOTAL' },
+    { key: 'speed', label: 'SPEED' },
+    { key: 'type', label: 'TYPE' },
+    { key: 'size', label: 'SIZE' },
+    { key: 'error', label: 'ERROR' },
+  ];
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.05, boxShadow: `0 0 50px ${color}80,0 0 80px ${color}40` }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <Card
+        className="bg-[#0a0a0a] border-2 p-4 relative overflow-hidden h-full"
+        style={{ borderColor: color, boxShadow: `0 0 30px ${color}50,0 0 60px ${color}20` }}
+      >
         <div className="relative z-10">
-          {Object.entries(data).map(([key, value]) => (
-            <div key={key} className="flex justify-between text-xs">
-              <span className="text-gray-400 capitalize">{key}:</span>
-              <span className="text-white">{value}</span>
-            </div>
-          ))}
+          {/* Card title in bright, colorful neon */}
+          <h3
+            className="font-mono font-extrabold text-lg mb-2"
+            style={{ color: color, textShadow: `0 0 10px ${color}, 0 0 20px ${color}` }}
+          >
+            {title}
+          </h3>
+
+          {/* Field labels and values in white/light grey */}
+          {fields.map(({ key, label }) =>
+            data[key] !== undefined ? (
+              <div key={key} className="flex justify-between text-xs font-mono mb-1">
+                <span className="font-bold text-gray-300">{label}:</span>
+                <span className="text-white">{data[key]}</span>
+              </div>
+            ) : null
+          )}
+
           {usage !== undefined && <Progress value={usage} className="h-2 mt-1" />}
         </div>
       </Card>
     </motion.div>
   );
+};
+
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h2 className="text-red-500 text-2xl font-orbitron" style={{ textShadow: '0 0 20px #ff0033,0 0 40px #ff0033' }}>
+        <h2 className="text-green-400 text-3xl font-mono font-extrabold" style={{ textShadow: '0 0 20px #00ff00, 0 0 40px #00ff00' }}>
           SYSTEM SPECIFICATIONS
         </h2>
         <div className="flex gap-4">
-          <Button onClick={handleRescan} disabled={scanning} className="bg-transparent border-2 border-purple-600 text-white hover:bg-purple-600/30">
+          <Button onClick={handleRescan} disabled={scanning} className="bg-transparent border-2 border-green-600 text-white hover:bg-green-600/30">
             <RotateCw className={`mr-2 h-4 w-4 ${scanning ? 'animate-spin' : ''}`} /> Re-Scan Specs
           </Button>
           <Button onClick={() => setShowBenchmark(true)} className="bg-transparent border-2 border-red-600 text-white hover:bg-red-600/30">

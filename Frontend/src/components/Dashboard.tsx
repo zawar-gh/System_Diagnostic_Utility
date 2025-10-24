@@ -1,3 +1,4 @@
+//components/Dashboard.tsx
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { User, LogOut, Settings, Save } from 'lucide-react';
@@ -21,6 +22,9 @@ interface DashboardProps {
 export function Dashboard({ user, onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'analysis'>('overview');
   const [showProfile, setShowProfile] = useState(false);
+
+  // Fallback if user is undefined (very rare, just for safety)
+  if (!user) return <p className="text-white text-center mt-20">Loading user...</p>;
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
@@ -96,7 +100,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
               >
                 <Avatar className="w-10 h-10 border-2 border-red-600" style={{ boxShadow: '0 0 20px rgba(255, 0, 0, 0.5)' }}>
-                  <AvatarImage src={user.avatar} alt={user.username} />
+                  <AvatarImage src={user.avatar || ''} alt={user.username} />
                   <AvatarFallback>{user.username[0]?.toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className="text-white">{user.username}</span>
@@ -133,7 +137,10 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'overview' ? <SystemOverview /> : <AnalysisUpgrades />}
+          {activeTab === 'overview' 
+            ? <SystemOverview /> 
+            : <AnalysisUpgrades user={user} /> // ✅ pass user prop
+          }
         </motion.div>
       </div>
 

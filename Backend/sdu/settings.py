@@ -3,7 +3,7 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-@sfq(kcwsw0*jlwu=#3vemiay-=csasg3#9-o^2*z8%q-(wv$*'
+SECRET_KEY = '@secret_key122333'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
