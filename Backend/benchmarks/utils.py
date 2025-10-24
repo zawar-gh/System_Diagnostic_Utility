@@ -2,6 +2,7 @@
 import time
 import psutil
 from typing import List, Dict, Optional
+import multiprocessing as mp
 
 try:
     import GPUtil
@@ -18,9 +19,7 @@ def get_cpu_temp() -> Optional[float]:
         # Choose a sensible sensor if available
         for key in ('coretemp', 'cpu-thermal', 'k10temp'):
             if key in temps and temps[key]:
-                # choose first entry current temperature
                 return round(temps[key][0].current, 2)
-        # if any sensor present, pick the first temperature available:
         if temps:
             first_key = next(iter(temps))
             if temps[first_key]:
@@ -38,7 +37,6 @@ def get_gpu_usage_and_vram() -> Dict[str, Optional[float]]:
         if not gpus:
             return {"gpu_percent": None, "vram_total_mb": None}
         gpu = gpus[0]
-        # load is 0..1 -> convert to percentage
         gpu_percent = round(gpu.load * 100, 2)
         vram_total = int(gpu.memoryTotal) if hasattr(gpu, "memoryTotal") and gpu.memoryTotal else None
         return {"gpu_percent": gpu_percent, "vram_total_mb": vram_total}
@@ -48,8 +46,7 @@ def get_gpu_usage_and_vram() -> Dict[str, Optional[float]]:
 def run_samples(duration_seconds: int = 60, sample_count: int = 3, sample_interval: Optional[int] = None) -> List[Dict]:
     """
     Collect `sample_count` evenly spaced samples over duration_seconds.
-    If sample_interval provided, uses that seconds between samples.
-    Returns list of metrics objects: {"time": t, "cpu": cpu%, "gpu": gpu%, "temp": temp}
+    Returns list of metrics: {"time": t, "cpu": cpu%, "gpu": gpu%, "temp": temp}
     """
     if sample_interval is None:
         if sample_count <= 1:
@@ -65,7 +62,6 @@ def run_samples(duration_seconds: int = 60, sample_count: int = 3, sample_interv
         gpu_info = get_gpu_usage_and_vram()
         gpu_percent = gpu_info.get("gpu_percent")
         temp = get_cpu_temp()
-        # normalize None -> use 0 for usage (frontend expects numbers)
         metrics.append({
             "time": tpoint,
             "cpu": cpu if cpu is not None else 0.0,
@@ -76,54 +72,91 @@ def run_samples(duration_seconds: int = 60, sample_count: int = 3, sample_interv
             time.sleep(sample_interval)
     return metrics
 
+# ---------------------------------------------------------
+# CPU stress (multi-process) — uses all logical cores
+# ---------------------------------------------------------
 import numpy as np
 
-def run_cpu_stress_test(duration_seconds: int = 10) -> Dict[str, float]:
+def _cpu_worker(stop_event: mp.Event, op_counter: mp.Value, mat_size: int):
     """
-    Run a CPU stress test for given duration.
-    Performs repeated matrix multiplications to stress CPU cores.
-    Returns performance score (operations/sec) and average CPU utilization.
+    Worker process: continuously multiply matrices until stop_event is set.
+    Increments op_counter for each completed multiplication.
     """
-    start_time = time.time()
-    operation_count = 0
-    cpu_usage_samples = []
+    # imports inside worker process
+    import numpy as _np
+    while not stop_event.is_set():
+        a = _np.random.rand(mat_size, mat_size)
+        b = _np.random.rand(mat_size, mat_size)
+        _ = _np.dot(a, b)
+        with op_counter.get_lock():
+            op_counter.value += 1
 
-    while time.time() - start_time < duration_seconds:
-        # Generate random matrices (size 300x300 for balanced stress)
-        a = np.random.rand(300, 300)
-        b = np.random.rand(300, 300)
-        np.dot(a, b)
-        operation_count += 1
-
-        # Capture instantaneous CPU load
-        cpu_usage_samples.append(psutil.cpu_percent(interval=0.1))
-
-    elapsed = time.time() - start_time
-    avg_cpu = round(sum(cpu_usage_samples) / len(cpu_usage_samples), 2)
-    score = round(operation_count / elapsed, 2)
-
-    return {
-        "cpu_score": score,
-        "avg_cpu": avg_cpu,
-        "duration": round(elapsed, 2)
-    }
-def run_gpu_stress_test(duration_seconds: int = 10) -> Dict[str, float]:
+def run_cpu_stress_test(duration_seconds: int = 10, mat_size: int = 300) -> Dict[str, float]:
     """
-    Run a GPU stress test using OpenCL parallel computation.
-    Returns GFLOPs/sec (approx) and average GPU utilization.
-    Falls back to 0 if no OpenCL device is found.
+    Run a CPU stress test using one worker per logical core (multiprocessing).
+    Returns:
+      {
+        "cpu_score": operations_per_sec,
+        "avg_cpu": average_cpu_percent,
+        "duration": elapsed_seconds
+      }
+    """
+    cores = psutil.cpu_count(logical=True) or 1
+    stop_event = mp.Event()
+    op_counter = mp.Value('L', 0)  # unsigned long counter
+
+    workers = []
+    for _ in range(cores):
+        p = mp.Process(target=_cpu_worker, args=(stop_event, op_counter, mat_size), daemon=True)
+        p.start()
+        workers.append(p)
+
+    cpu_samples = []
+    start = time.time()
+    try:
+        # sample CPU usage periodically while workers run
+        while time.time() - start < duration_seconds:
+            # sample over a short interval
+            cpu_samples.append(psutil.cpu_percent(interval=0.5))
+    finally:
+        # stop workers
+        stop_event.set()
+        for p in workers:
+            p.join(timeout=2)
+
+    elapsed = time.time() - start
+    ops = op_counter.value
+    avg_cpu = round(sum(cpu_samples) / len(cpu_samples), 2) if cpu_samples else 0.0
+    score = round(ops / elapsed, 2) if elapsed > 0 else 0.0
+
+    return {"cpu_score": score, "avg_cpu": avg_cpu, "duration": round(elapsed, 2)}
+
+# ---------------------------------------------------------
+# GPU stress (OpenCL) — larger/chunked workload + repeats
+# ---------------------------------------------------------
+def run_gpu_stress_test(duration_seconds: int = 10, chunk_n: int = 8_000_000, repeat_per_cycle: int = 4) -> Dict[str, float]:
+    """
+    Run a GPU stress test with OpenCL vector additions in repeated cycles.
+    - chunk_n: vector length per buffer (tune based on GPU memory)
+    - repeat_per_cycle: how many kernel launches per cycle to increase load
+    Returns:
+      {
+        "gpu_score": approx_gflops,
+        "avg_gpu": avg_gpu_percent,
+        "duration": elapsed_seconds
+      }
+    Falls back cleanly if no OpenCL or GPUtil present.
     """
     if not GPUtil:
         return {"gpu_score": 0.0, "avg_gpu": 0.0, "duration": duration_seconds}
 
     try:
         import pyopencl as cl
-        import numpy as np
+        import numpy as _np
     except Exception:
         return {"gpu_score": 0.0, "avg_gpu": 0.0, "duration": duration_seconds}
 
     try:
-        # Initialize OpenCL context (use first available GPU)
         platforms = cl.get_platforms()
         devices = [d for p in platforms for d in p.get_devices(device_type=cl.device_type.GPU)]
         if not devices:
@@ -132,7 +165,6 @@ def run_gpu_stress_test(duration_seconds: int = 10) -> Dict[str, float]:
         ctx = cl.Context(devices)
         queue = cl.CommandQueue(ctx)
 
-        # Kernel: simple vector add (lightweight compute kernel)
         kernel_code = """
         __kernel void vec_add(__global const float *a, __global const float *b, __global float *c) {
             int gid = get_global_id(0);
@@ -141,39 +173,45 @@ def run_gpu_stress_test(duration_seconds: int = 10) -> Dict[str, float]:
         """
         program = cl.Program(ctx, kernel_code).build()
 
-        n = 10_000_000  # vector length
-        a_np = np.random.rand(n).astype(np.float32)
-        b_np = np.random.rand(n).astype(np.float32)
-        c_np = np.empty_like(a_np)
+        # allocate smaller chunks to avoid exhausting GPU memory on small cards
+        n = chunk_n
+        a_np = _np.random.rand(n).astype(_np.float32)
+        b_np = _np.random.rand(n).astype(_np.float32)
+        c_np = _np.empty_like(a_np)
 
         mf = cl.mem_flags
         a_g = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=a_np)
         b_g = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=b_np)
         c_g = cl.Buffer(ctx, mf.WRITE_ONLY, c_np.nbytes)
 
-        # Run continuous vector adds for duration
-        start_time = time.time()
+        start = time.time()
         iterations = 0
-        gpu_usage_samples = []
+        gpu_samples = []
 
-        while time.time() - start_time < duration_seconds:
-            program.vec_add(queue, a_np.shape, None, a_g, b_g, c_g)
+        # choose global size aligned to vector length
+        global_size = (n,)
+        while time.time() - start < duration_seconds:
+            # call the kernel multiple times per loop to keep GPU busy
+            for _ in range(repeat_per_cycle):
+                program.vec_add(queue, global_size, None, a_g, b_g, c_g)
             queue.finish()
-            iterations += 1
+            iterations += repeat_per_cycle
 
-            # sample GPU usage using GPUtil
+            # sample GPU utilization (GPUtil)
             try:
                 gpus = GPUtil.getGPUs()
                 if gpus:
-                    gpu_usage_samples.append(gpus[0].load * 100)
+                    gpu_samples.append(gpus[0].load * 100)
             except Exception:
                 pass
 
-        elapsed = time.time() - start_time
-        avg_gpu = round(sum(gpu_usage_samples) / len(gpu_usage_samples), 2) if gpu_usage_samples else 0.0
+        elapsed = time.time() - start
+        avg_gpu = round(sum(gpu_samples) / len(gpu_samples), 2) if gpu_samples else 0.0
 
-        # Each iteration ~ 2 * n operations (one add per element)
-        gflops = (2 * n * iterations) / (elapsed * 1e9)
+        # Each kernel does ~ n additions -> n ops per kernel (we count add as 1 op)
+        # We approximate operations as 1 * n * iterations, but count both read+write ~2 ops:
+        ops = 2 * n * iterations
+        gflops = (ops / elapsed) / 1e9 if elapsed > 0 else 0.0
         return {"gpu_score": round(gflops, 4), "avg_gpu": avg_gpu, "duration": round(elapsed, 2)}
 
     except Exception:

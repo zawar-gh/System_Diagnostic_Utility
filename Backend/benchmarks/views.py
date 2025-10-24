@@ -1,86 +1,98 @@
+# benchmarks/views.py
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Benchmark, BenchmarkMetric
 from .serializers import BenchmarkSerializer
-import psutil
 import GPUtil
-import time
 from .utils import run_cpu_stress_test, run_gpu_stress_test, get_cpu_temp, run_samples
 
-
-# 🧩 1. Unified benchmark runner
-@api_view(["POST"])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def run_benchmark(request):
     """
-    Run selected benchmark type (CPU / GPU / Hybrid) and return results.
+    Run selected benchmark type (cpu/gpu/hybrid), store a single summary metric row,
+    and return serialized benchmark + explicit score fields for the frontend.
     """
     user = request.user
-    bench_type = request.data.get("type", "cpu").lower()
+    bench_type = request.data.get('type', 'cpu').lower()
 
     try:
-        # --- Create new benchmark entry ---
         benchmark = Benchmark.objects.create(user=user, type=bench_type)
 
-        # --- Run the actual stress test ---
-        if bench_type == "cpu":
-            result = run_cpu_stress_test(duration_seconds=10)
-        elif bench_type == "gpu":
-            result = run_gpu_stress_test(duration_seconds=10)
-        elif bench_type == "hybrid":
-            cpu = run_cpu_stress_test(duration_seconds=10)
-            gpu = run_gpu_stress_test(duration_seconds=10)
-            result = {**cpu, **gpu}
+        # run tests
+        if bench_type == 'cpu':
+            res_cpu = run_cpu_stress_test(duration_seconds=10)
+            # build unified response
+            response_scores = {
+                "cpu_score": res_cpu.get("cpu_score", 0),
+                "avg_cpu": res_cpu.get("avg_cpu", 0),
+                "duration": res_cpu.get("duration", 0)
+            }
+            avg_gpu = 0.0
+        elif bench_type == 'gpu':
+            res_gpu = run_gpu_stress_test(duration_seconds=10)
+            response_scores = {
+                "gpu_score": res_gpu.get("gpu_score", 0),
+                "avg_gpu": res_gpu.get("avg_gpu", 0),
+                "duration": res_gpu.get("duration", 0)
+            }
+            response_scores["cpu_score"] = 0.0
+            response_scores["avg_cpu"] = 0.0
+        elif bench_type == 'hybrid':
+            res_cpu = run_cpu_stress_test(duration_seconds=10)
+            res_gpu = run_gpu_stress_test(duration_seconds=10)
+            # merge results
+            response_scores = {
+                "cpu_score": res_cpu.get("cpu_score", 0),
+                "avg_cpu": res_cpu.get("avg_cpu", 0),
+                "gpu_score": res_gpu.get("gpu_score", 0),
+                "avg_gpu": res_gpu.get("avg_gpu", 0),
+                "duration": max(res_cpu.get("duration", 0), res_gpu.get("duration", 0))
+            }
         else:
-            return Response(
-                {"error": f"Invalid benchmark type: {bench_type}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"error": "Invalid benchmark type"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # --- Gather current temp and GPU stats ---
+        # snapshot temps / gpu usage for the metric row
         temp = get_cpu_temp() or 0.0
         gpu_usage = 0.0
         try:
             gpus = GPUtil.getGPUs()
             if gpus:
                 gpu_usage = round(gpus[0].load * 100, 2)
-                if not temp:
-                    temp = gpus[0].temperature
+                if not temp and hasattr(gpus[0], 'temperature'):
+                    temp = gpus[0].temperature or temp
         except Exception:
             pass
 
-        # --- Save a performance metric record ---
+        # Save a single BenchmarkMetric row (time=0)
         BenchmarkMetric.objects.create(
             benchmark=benchmark,
             time=0,
-            cpu=result.get("avg_cpu", 0),
-            gpu=result.get("avg_gpu", gpu_usage),
-            temp=round(temp, 2),
+            cpu=response_scores.get("avg_cpu", 0) or 0,
+            gpu=response_scores.get("avg_gpu", gpu_usage) or gpu_usage,
+            temp=round(temp, 2)
         )
 
-        # --- Serialize + merge scores for frontend ---
+        # Serialize benchmark and attach the scores explicitly for frontend
         serializer = BenchmarkSerializer(benchmark)
-        response_data = serializer.data
-        response_data.update(result)
-        response_data.update({"temp": temp, "gpu_usage": gpu_usage})
+        data = serializer.data
+        # attach score keys so frontend can read them easily
+        data.update(response_scores)
+        data.update({"temp": round(temp, 2), "gpu_usage": gpu_usage})
 
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return Response(data, status=status.HTTP_201_CREATED)
 
     except Exception as e:
-        return Response(
-            {"error": f"Benchmark failed: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# 🧩 2. Live metrics endpoint for frontend polling
-@api_view(["GET"])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def live_metrics(request):
     """
-    Returns one quick live sample of CPU/GPU/temp for real-time chart updates.
+    Return a single quick sample for frontend polling.
     """
     try:
         sample = run_samples(duration_seconds=1, sample_count=1)[0]
@@ -89,14 +101,10 @@ def live_metrics(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# 🧩 3. Fetch all benchmarks for a user
-@api_view(["GET"])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_benchmarks(request):
-    """
-    Retrieve all benchmarks for the authenticated user.
-    """
     user = request.user
-    benchmarks = Benchmark.objects.filter(user=user).order_by("-timestamp")
+    benchmarks = Benchmark.objects.filter(user=user).order_by('-timestamp')
     serializer = BenchmarkSerializer(benchmarks, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
