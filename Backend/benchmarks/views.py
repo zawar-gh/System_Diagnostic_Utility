@@ -1,53 +1,102 @@
-#benchmark/views.py
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import Benchmark
-from .serializers import BenchmarkSerializer
-import random, time
 from rest_framework import status
-from .models import BenchmarkMetric
+from .models import Benchmark, BenchmarkMetric
+from .serializers import BenchmarkSerializer
+import psutil
+import GPUtil
+import time
+from .utils import run_cpu_stress_test, run_gpu_stress_test, get_cpu_temp, run_samples
 
-@api_view(['POST'])
+
+# 🧩 1. Unified benchmark runner
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def run_benchmark(request):
     """
-    Simulate a benchmark run for the given type.
-    Creates Benchmark + BenchmarkMetric entries and returns results.
+    Run selected benchmark type (CPU / GPU / Hybrid) and return results.
     """
     user = request.user
-    bench_type = request.data.get('type', 'general')
+    bench_type = request.data.get("type", "cpu").lower()
 
-    # --- Simulate benchmark data ---
-    metrics = []
-    for t in [0, 30, 60]:
-        metrics.append({
-            "time": t,
-            "cpu": round(random.uniform(20, 90), 2),
-            "gpu": round(random.uniform(15, 85), 2),
-            "temp": round(random.uniform(35, 75), 2),
-        })
-        time.sleep(0.1)  # simulate short delay (optional)
+    try:
+        # --- Create new benchmark entry ---
+        benchmark = Benchmark.objects.create(user=user, type=bench_type)
 
-    # --- Save to database ---
-    benchmark = Benchmark.objects.create(user=user, type=bench_type)
-    for m in metrics:
+        # --- Run the actual stress test ---
+        if bench_type == "cpu":
+            result = run_cpu_stress_test(duration_seconds=10)
+        elif bench_type == "gpu":
+            result = run_gpu_stress_test(duration_seconds=10)
+        elif bench_type == "hybrid":
+            cpu = run_cpu_stress_test(duration_seconds=10)
+            gpu = run_gpu_stress_test(duration_seconds=10)
+            result = {**cpu, **gpu}
+        else:
+            return Response(
+                {"error": f"Invalid benchmark type: {bench_type}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # --- Gather current temp and GPU stats ---
+        temp = get_cpu_temp() or 0.0
+        gpu_usage = 0.0
+        try:
+            gpus = GPUtil.getGPUs()
+            if gpus:
+                gpu_usage = round(gpus[0].load * 100, 2)
+                if not temp:
+                    temp = gpus[0].temperature
+        except Exception:
+            pass
+
+        # --- Save a performance metric record ---
         BenchmarkMetric.objects.create(
             benchmark=benchmark,
-            time=m["time"],
-            cpu=m["cpu"],
-            gpu=m["gpu"],
-            temp=m["temp"]
+            time=0,
+            cpu=result.get("avg_cpu", 0),
+            gpu=result.get("avg_gpu", gpu_usage),
+            temp=round(temp, 2),
         )
 
-    serializer = BenchmarkSerializer(benchmark)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # --- Serialize + merge scores for frontend ---
+        serializer = BenchmarkSerializer(benchmark)
+        response_data = serializer.data
+        response_data.update(result)
+        response_data.update({"temp": temp, "gpu_usage": gpu_usage})
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response(
+            {"error": f"Benchmark failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['GET'])
+# 🧩 2. Live metrics endpoint for frontend polling
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def live_metrics(request):
+    """
+    Returns one quick live sample of CPU/GPU/temp for real-time chart updates.
+    """
+    try:
+        sample = run_samples(duration_seconds=1, sample_count=1)[0]
+        return Response(sample, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# 🧩 3. Fetch all benchmarks for a user
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def user_benchmarks(request):
+    """
+    Retrieve all benchmarks for the authenticated user.
+    """
     user = request.user
-    benchmarks = Benchmark.objects.filter(user=user).order_by('-timestamp')
+    benchmarks = Benchmark.objects.filter(user=user).order_by("-timestamp")
     serializer = BenchmarkSerializer(benchmarks, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
