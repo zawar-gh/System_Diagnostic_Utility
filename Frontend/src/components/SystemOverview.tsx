@@ -1,3 +1,4 @@
+//SystemOverview 
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Cpu, HardDrive, MemoryStick, Monitor, Play, RotateCw } from 'lucide-react';
@@ -21,7 +22,17 @@ interface BenchmarkResult {
   type: string;
   timestamp: string;
   metrics: BenchmarkMetric[];
+  cpuScore?: number;
+  gpuScore?: number;
+  overallScore?: number;
+  chartData?: {
+    time: string;
+    cpu: number;
+    gpu: number;
+    temp: number;
+  }[];
 }
+
 
 export function SystemOverview() {
   const [systemData, setSystemData] = useState<any>(null);
@@ -74,43 +85,48 @@ export function SystemOverview() {
 
   const handleRescan = () => fetchSystemData();
 
-  const handleBenchmark = async (type: string) => {
-    setBenchmarkType(type);
-    setBenchmarking(true);
-    setBenchmarkProgress(0);
+ const handleBenchmark = async (type: string) => {
+  setBenchmarkType(type);
+  setBenchmarking(true);
+  setBenchmarkProgress(0);
+  
 
-    const interval = setInterval(() => {
-      setBenchmarkProgress(prev => Math.min(prev + 2, 100));
-    }, 100);
+  const interval = setInterval(() => {
+    setBenchmarkProgress(prev => Math.min(prev + 2, 100));
+  }, 100);
 
-    try {
-      const metrics: BenchmarkMetric[] = [
-        { time: 0, cpu: 20, gpu: 15, temp: 35 },
-        { time: 30, cpu: 50, gpu: 45, temp: 50 },
-        { time: 60, cpu: 70, gpu: 60, temp: 60 },
-      ];
+  try {
+    // 👇 This is now valid since we're inside an async function
+    const { data: result } = await API.post('/benchmarks/run/', { type });
 
-      const { data: result } = await API.post('/benchmarks/', { type, metrics });
+    setBenchmarkResults({
+      
+      ...result,
+      
+      cpuScore: result.metrics.reduce((sum: number, m: any) => sum + m.cpu, 0),
+      gpuScore: result.metrics.reduce((sum: number, m: any) => sum + m.gpu, 0),
+      overallScore: result.metrics.reduce((sum: number, m: any) => sum + m.cpu + m.gpu, 0),
+      chartData: result.metrics.map((m: any) => ({
+        time: `${m.time}s`,
+        cpu: m.cpu,
+        gpu: m.gpu,
+        temp: m.temp,
+      }), console.log('Benchmark chart data:', result.metrics)
+),
+    });
 
-      setBenchmarkResults({
-        ...result,
-        cpuScore: metrics.reduce((sum, m) => sum + m.cpu, 0),
-        gpuScore: metrics.reduce((sum, m) => sum + m.gpu, 0),
-        overallScore: metrics.reduce((sum, m) => sum + m.cpu + m.gpu, 0),
-        chartData: metrics.map(m => ({ time: `${m.time}s`, cpu: m.cpu, gpu: m.gpu, temp: m.temp })),
-      });
+    fetchBenchmarks();
+    toast.success('Benchmark complete!');
+  } catch (err) {
+    console.error(err);
+    toast.error('Benchmark failed');
+  } finally {
+    clearInterval(interval);
+    setBenchmarking(false);
+    setBenchmarkProgress(100);
+  }
+};
 
-      fetchBenchmarks();
-      toast.success('Benchmark complete!');
-    } catch (err) {
-      console.error(err);
-      toast.error('Benchmark failed');
-    } finally {
-      clearInterval(interval);
-      setBenchmarking(false);
-      setBenchmarkProgress(100);
-    }
-  };
 
   if (!systemData) return <div className="text-green-400 font-mono">Loading system info...</div>;
 
@@ -214,17 +230,35 @@ const SystemCard = ({ icon: Icon, title, data, color, usage }: any) => {
             </div>
           )}
 
-          {benchmarkResults && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>CPU Score: {benchmarkResults.cpuScore}</div>
-                <div>GPU Score: {benchmarkResults.gpuScore}</div>
-                <div>Overall: {benchmarkResults.overallScore}</div>
-              </div>
-              <BenchmarkChart data={benchmarkResults.chartData} />
-              <Button onClick={() => { setBenchmarkResults(null); setShowBenchmark(false); }}>Close</Button>
-            </div>
-          )}
+         {benchmarkResults && (
+  <div className="space-y-4 py-4">
+    <div className="grid grid-cols-2 gap-3 text-sm font-mono">
+      <div>CPU Score: {benchmarkResults.cpuScore?.toFixed(2)}</div>
+      <div>GPU Score: {benchmarkResults.gpuScore?.toFixed(2)}</div>
+      <div>Overall: {benchmarkResults.overallScore?.toFixed(2)}</div>
+    </div>
+
+    {benchmarkResults.chartData && benchmarkResults.chartData.length > 0 ? (
+      <div className="w-full h-[300px] mt-4">
+        <BenchmarkChart data={benchmarkResults.chartData} />
+      </div>
+    ) : (
+      <div className="text-gray-400 text-center font-mono py-8">
+        No chart data available
+      </div>
+    )}
+
+    <Button
+      onClick={() => {
+        setBenchmarkResults(null);
+        setShowBenchmark(false);
+      }}
+      className="mt-4"
+    >
+      Close
+    </Button>
+  </div>
+)}
         </DialogContent>
       </Dialog>
     </div>
