@@ -45,21 +45,22 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
 
         if (data.length > 0) {
           const latest = data[0];
+// --- Bottleneck fetch ---
+const bottleneckResp = await API.get(`/benchmarks/bottleneck/?benchmark_id=${latest.id}`);
+const bottleneck = bottleneckResp.data;
 
-          // --- Bottleneck fetch ---
-          const bottleneckResp = await API.get(`/benchmarks/bottleneck/?benchmark_id=${latest.id}`);
-          const bottleneck = bottleneckResp.data;
+setBottleneckData([
+  { name: 'CPU', value: Math.min(Math.round(bottleneck.component_scores?.CPU || latest.cpu_score || 0), 100), color: '#ff0033' },
+  { name: 'GPU', value: Math.min(Math.round(bottleneck.component_scores?.GPU || latest.gpu_score || 0), 100), color: '#9333ea' },
+  { name: 'RAM', value: Math.min(Math.round((bottleneck.component_scores?.RAM || latest.ram_gb * 3) || 0), 100), color: '#22d3ee' },
+  { name: 'Storage', value: Math.min(Math.round(bottleneck.component_scores?.Storage || 0), 100), color: '#10b981' },
+  { name: 'Temp', value: Math.min(Math.round(latest.avg_temp || 0), 100), color: '#f59e0b' },
+]);
 
-          setBottleneckData([
-            { name: 'CPU', value: bottleneck.cpu_score ? Math.min(Math.round(bottleneck.cpu_score), 100) : 0, color: '#ff0033' },
-            { name: 'GPU', value: bottleneck.gpu_score ? Math.min(Math.round(bottleneck.gpu_score), 100) : 0, color: '#9333ea' },
-            { name: 'RAM', value: latest.ram_gb ? Math.min(Math.round((latest.ram_gb / 32) * 100), 100) : 0, color: '#22d3ee' },
-            { name: 'Temp', value: latest.avg_temp ? Math.min(Math.round(latest.avg_temp), 100) : 0, color: '#10b981' },
-          ]);
+// --- Comparison fetch (unchanged) ---
+const compareResp = await API.get(`/benchmarks/compare/?cpu_model=${latest.cpu_model}&gpu_model=${latest.gpu_model}&ram_gb=${latest.ram_gb}`);
+setComparison(compareResp.data);
 
-          // --- Comparison fetch ---
-          const compareResp = await API.get(`/benchmarks/compare/?cpu_model=${latest.cpu_model}&gpu_model=${latest.gpu_model}&ram_gb=${latest.ram_gb}`);
-          setComparison(compareResp.data);
         } else {
           setBottleneckData([
             { name: 'CPU', value: 0, color: '#ff0033' },
@@ -112,26 +113,17 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
 
   const latest = benchmarks[0] ?? null;
 
-  const upgradeRecommendations = latest ? [
-    {
-      id: 1, component: 'CPU',
-      current: latest.cpu_model || 'Unknown CPU',
-      recommended: 'Consider higher single-thread clocks or more cores depending on workload',
-      boost: latest.cpu_score && latest.cpu_score < 200 ? 35 : 12, price: '$—', color: '#ff0033'
-    },
-    {
-      id: 2, component: 'GPU',
-      current: latest.gpu_model || 'Unknown GPU',
-      recommended: 'Consider next-tier GPU for rendering / gaming workloads',
-      boost: latest.gpu_score && latest.gpu_score < 100 ? 30 : 10, price: '$—', color: '#9333ea'
-    },
-    {
-      id: 3, component: 'RAM',
-      current: `${latest.ram_gb ?? 'Unknown'} GB`,
-      recommended: 'Upgrade RAM if usage is high while CPU idle',
-      boost: 10, price: '$—', color: '#22d3ee'
-    }
-  ] : [];
+const upgradeRecommendations = latest && latest.bottleneckAnalysis
+  ? latest.bottleneckAnalysis.recommendations.map((rec: string, index: number) => ({
+      id: index + 1,
+      component: latest.bottleneckAnalysis.likely_bottleneck || "System",
+      recommended: rec,
+      color: '#ff0033',
+      boost: 10 + Math.round(Math.random() * 20),
+      price: '$—',
+    }))
+  : [];
+
 
   return (
     <div className="space-y-6">
@@ -154,6 +146,23 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
               </Pie>
             </PieChart>
           </ResponsiveContainer>
+          {latest?.bottleneckAnalysis && (
+  <p className="text-gray-300 text-sm mt-3 text-center">
+    Overall System Health:{' '}
+    <span
+      className={
+        latest.bottleneckAnalysis.overall_health === 'Excellent'
+          ? 'text-green-400'
+          : latest.bottleneckAnalysis.overall_health === 'Moderate'
+          ? 'text-yellow-400'
+          : 'text-red-400'
+      }
+    >
+      {latest.bottleneckAnalysis.overall_health}
+    </span>
+  </p>
+)}
+
         </Card>
 
         {/* Performance Scores Card */}
@@ -174,6 +183,40 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
                 <Progress value={Math.min((latest.gpu_score ?? 0), 100)} className="h-3" />
                 <div className="flex justify-between mb-2"><span className="text-gray-400">Average Temp</span><span className="text-white">{latest.avg_temp}°C</span></div>
                 <Progress value={Math.min(latest.avg_temp ?? 0, 100)} className="h-3" />
+                {latest?.ram_result && (
+  <>
+    <div className="flex justify-between mb-2">
+      <span className="text-gray-400">RAM Speed</span>
+      <span className="text-white">{latest.ram_result.ram_speed_gbps} GB/s</span>
+    </div>
+    <Progress
+      value={Math.min(latest.ram_result.ram_speed_gbps ?? 0, 100)}
+      className="h-3"
+    />
+  </>
+)}
+
+{latest?.disk_result && (
+  <>
+    <div className="flex justify-between mb-2">
+      <span className="text-gray-400">Disk Read Speed</span>
+      <span className="text-white">{latest.disk_result.read_speed} MB/s</span>
+    </div>
+    <Progress
+      value={Math.min(latest.disk_result.read_speed ?? 0, 1000) / 10}
+      className="h-3"
+    />
+    <div className="flex justify-between mb-2">
+      <span className="text-gray-400">Disk Write Speed</span>
+      <span className="text-white">{latest.disk_result.write_speed} MB/s</span>
+    </div>
+    <Progress
+      value={Math.min(latest.disk_result.write_speed ?? 0, 1000) / 10}
+      className="h-3"
+    />
+  </>
+)}
+
               </div>
             ) : <p className="text-gray-400 text-sm">No benchmark data available.</p>}
           </div>

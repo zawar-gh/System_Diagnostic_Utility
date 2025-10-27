@@ -14,8 +14,13 @@ class BenchmarkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Benchmark
         fields = [
-            'id', 'type', 'timestamp', 'cpu_model', 'gpu_model', 'ram_gb',
-            'cpu_score', 'gpu_score', 'overall_score', 'avg_temp', 'metrics'
+            'id', 'type', 'timestamp',
+            'cpu_model', 'gpu_model', 'ram_gb',
+            'cpu_score', 'gpu_score', 'ram_score', 'disk_score', 'overall_score',
+            'avg_temp', 'ram_speed_gbps',
+            'disk_read_speed', 'disk_write_speed', 'disk_health_percent',
+            'motherboard', 'ram_type', 'storage_type',
+            'metrics',
         ]
 
 

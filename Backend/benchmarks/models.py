@@ -1,33 +1,62 @@
-#benchmarks/models.py
 from django.db import models
 from django.contrib.auth.models import User
 
+
 class Benchmark(models.Model):
+    """
+    Stores one benchmark session result, including CPU, GPU, RAM, and storage info.
+    Supports hybrid testing, temperature tracking, and hardware snapshots.
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='benchmarks')
-    type = models.CharField(max_length=50)
+    type = models.CharField(max_length=50)  # "cpu", "gpu", "hybrid", "ram", "disk"
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    # 🔹 Hardware snapshot for comparison
+    # --- Hardware Snapshot ---
     cpu_model = models.CharField(max_length=200, default="Unknown CPU")
     gpu_model = models.CharField(max_length=200, default="Unknown GPU")
     ram_gb = models.FloatField(default=0)
+    ram_type = models.CharField(max_length=100, default="Unknown")
+    motherboard = models.CharField(max_length=200, default="Unknown MB")
+    storage_type = models.CharField(max_length=100, default="Unknown")
 
-    # 🔹 Performance results
+    # --- Performance Scores ---
     cpu_score = models.FloatField(default=0)
     gpu_score = models.FloatField(default=0)
+    ram_score = models.FloatField(default=0)
+    disk_score = models.FloatField(default=0)
     overall_score = models.FloatField(default=0)
+
+    # --- Detailed Metrics ---
     avg_temp = models.FloatField(default=0)
+    ram_speed_gbps = models.FloatField(default=0)     # estimated or measured via benchmark
+    disk_read_speed = models.FloatField(default=0)    # MB/s
+    disk_write_speed = models.FloatField(default=0)   # MB/s
+    disk_health_percent = models.FloatField(default=0)  # SSD/HDD health estimate
 
     def __str__(self):
-        return f"{self.user.username} | {self.cpu_model} + {self.gpu_model} | {self.overall_score:.1f}"
+        return (
+            f"{self.user.username} | {self.type.upper()} | "
+            f"{self.cpu_model} + {self.gpu_model} | Score: {self.overall_score:.1f}"
+        )
+
+    class Meta:
+        ordering = ['-timestamp']
 
 
 class BenchmarkMetric(models.Model):
+    """
+    Time-based performance samples collected during benchmark runs.
+    Each metric captures CPU, GPU, temperature, and optionally RAM usage.
+    """
     benchmark = models.ForeignKey(Benchmark, on_delete=models.CASCADE, related_name='metrics')
-    time = models.IntegerField()  # time in seconds or measurement point
-    cpu = models.FloatField()     # CPU usage %
-    gpu = models.FloatField()     # GPU usage %
-    temp = models.FloatField()    # Temperature in Celsius
+    time = models.IntegerField()              # time in seconds
+    cpu = models.FloatField()                 # CPU usage %
+    gpu = models.FloatField()                 # GPU usage %
+    ram_usage = models.FloatField(default=0)  # RAM usage %
+    temp = models.FloatField()                # Temperature in Celsius
 
     def __str__(self):
-        return f"{self.benchmark.type} - t:{self.time}s CPU:{self.cpu}% GPU:{self.gpu}%"
+        return (
+            f"{self.benchmark.type.upper()} @ {self.time}s | "
+            f"CPU:{self.cpu:.1f}% GPU:{self.gpu:.1f}% TEMP:{self.temp:.1f}°C"
+        )

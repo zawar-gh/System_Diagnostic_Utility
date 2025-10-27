@@ -1,353 +1,331 @@
-# benchmarks/views.py
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import Max, F
-from django.core.paginator import Paginator
+from users.models import UserSpecs
+from statistics import mean
+import GPUtil, psutil, time, os, tempfile, numpy as np, traceback
 
 from .models import Benchmark, BenchmarkMetric
 from .serializers import BenchmarkSerializer, UserSpecsSerializer
-from .utils import run_cpu_stress_test, run_gpu_stress_test, get_cpu_temp, run_samples
-import GPUtil, psutil, time, math
 from diagnostics.utils.system_collector import get_system_info as system_collector
 from diagnostics.utils.bottleneck_analyzer import analyze_bottlenecks
-from users.models import UserSpecs
 
-@api_view(['POST'])
+# -----------------------------------------------
+# 🔹 Helper: Disk and RAM Performance Benchmarks
+# -----------------------------------------------
+
+def measure_disk_speed():
+    """Simple sequential disk read/write speed test using tempfile."""
+    try:
+        tmp_file = os.path.join(tempfile.gettempdir(), "sdu_disk_test.tmp")
+        data = b"x" * (20 * 1024 * 1024)  # 20 MB buffer
+
+        # Write speed
+        start = time.time()
+        with open(tmp_file, "wb") as f:
+            f.write(data)
+        write_speed = 20 / (time.time() - start)  # MB/s
+
+        # Read speed
+        start = time.time()
+        with open(tmp_file, "rb") as f:
+            _ = f.read()
+        read_speed = 20 / (time.time() - start)  # MB/s
+
+        os.remove(tmp_file)
+
+        avg_speed = (read_speed + write_speed) / 2
+        health_percent = min(100, max(30, (avg_speed / 400) * 100))  # 400 MB/s baseline
+
+        return {
+            "read_speed": round(read_speed, 2),
+            "write_speed": round(write_speed, 2),
+            "health_percent": round(health_percent, 1),
+        }
+    except Exception:
+        return {"read_speed": 0.0, "write_speed": 0.0, "health_percent": 0.0}
+
+
+def measure_ram_speed():
+    """Estimate RAM copy bandwidth in GB/s."""
+    try:
+        a = np.random.rand(20_000_000)  # ~160 MB
+        start = time.time()
+        b = a.copy()
+        duration = time.time() - start
+        speed_gbps = (a.nbytes / duration) / (1024 ** 3)
+        return {"ram_speed_gbps": round(speed_gbps, 2)}
+    except Exception:
+        return {"ram_speed_gbps": 0.0}
+
+
+# -----------------------------------------------
+# 🔹 Run Full Benchmark
+# -----------------------------------------------
+
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def run_benchmark(request):
     """
-    Safely run benchmark: collect system info, stress CPU/GPU, store results,
-    and provide bottleneck/comparison data without throwing 500 errors.
+    Run CPU/GPU/hybrid benchmarks, measure RAM & Disk,
+    and return full system health + bottleneck analysis.
     """
+    from .utils import (
+        run_cpu_stress_test,
+        run_gpu_stress_test,
+        run_hybrid_stress_test,
+        get_cpu_temp,
+    )
+
     user = request.user
     bench_type = request.data.get("type", "cpu").lower()
 
     try:
-        # --- Step 1: Collect system snapshot safely ---
+        # 1️⃣ System Snapshot
         sysinfo = system_collector() or {}
         cpu_model = sysinfo.get("cpu", {}).get("model", "Unknown CPU")
         gpu_model = sysinfo.get("gpu", {}).get("model", "Unknown GPU")
-
         ram_total_repr = sysinfo.get("ram", {}).get("total", "0")
         try:
             ram_gb = float(str(ram_total_repr).split()[0])
         except Exception:
             ram_gb = 0.0
 
-        # --- Step 2: Run CPU/GPU stress safely ---
-        try:
-            cpu_result = run_cpu_stress_test(duration_seconds=int(request.data.get("cpu_duration", 10)))
-        except Exception:
-            cpu_result = {"cpu_score": 0.0, "avg_cpu": 0.0, "duration": 0.0}
+        # 2️⃣ Stress Tests
+        cpu_result = {"cpu_score": 0.0, "avg_cpu": 0.0}
+        gpu_result = {"gpu_score": 0.0, "avg_gpu": 0.0}
 
-        gpu_result = {}
-        if bench_type in ["gpu", "hybrid"]:
-            try:
-                gpu_result = run_gpu_stress_test(duration_seconds=int(request.data.get("gpu_duration", 10)))
-            except Exception:
-                gpu_result = {"gpu_score": 0.0, "avg_gpu": 0.0, "duration": 0.0}
+        if bench_type == "cpu":
+            cpu_result = run_cpu_stress_test(duration_seconds=10)
+        elif bench_type == "gpu":
+            gpu_result = run_gpu_stress_test(duration_seconds=10)
+        elif bench_type == "hybrid":
+            hybrid = run_hybrid_stress_test(duration_seconds=15)
+            cpu_result.update(hybrid)
+            gpu_result.update(hybrid)
 
-        # --- Step 3: Safe temperature reading ---
+        # 3️⃣ RAM + Disk
+        ram_result = measure_ram_speed()
+        disk_result = measure_disk_speed()
+
+        # 4️⃣ Temps + GPU Usage
         temp = get_cpu_temp() or 0.0
         gpu_usage = 0.0
         try:
-            if GPUtil:
-                gpus = GPUtil.getGPUs()
-                if gpus:
-                    gpu_usage = round(gpus[0].load * 100, 2)
-                    if not temp and hasattr(gpus[0], "temperature"):
-                        temp = gpus[0].temperature or temp
+            gpus = GPUtil.getGPUs()
+            if gpus:
+                gpu_usage = round(gpus[0].load * 100, 2)
+                if not temp and hasattr(gpus[0], "temperature"):
+                    temp = gpus[0].temperature or temp
         except Exception:
             pass
 
-        # --- Step 4: Compute scores ---
-        cpu_score = float(cpu_result.get("cpu_score", 0.0) or 0.0)
-        gpu_score = float(gpu_result.get("gpu_score", 0.0) or 0.0)
-        overall_score = cpu_score + gpu_score
+        # 5️⃣ Scores
+        cpu_score = float(cpu_result.get("cpu_score", 0.0))
+        gpu_score = float(gpu_result.get("gpu_score", 0.0))
+        ram_score = round(ram_result["ram_speed_gbps"] * 50, 2)
+        disk_score = round(((disk_result["read_speed"] + disk_result["write_speed"]) / 2) * 0.2, 2)
+        overall_score = round(cpu_score + gpu_score + ram_score + disk_score, 2)
 
-        # --- Step 5: Create or update benchmark safely ---
-        benchmark, created = Benchmark.objects.update_or_create(
+        # 6️⃣ Save Benchmark
+        benchmark, _ = Benchmark.objects.update_or_create(
             user=user,
             cpu_model=cpu_model,
             gpu_model=gpu_model,
-            ram_gb=ram_gb,
             defaults={
                 "type": bench_type,
                 "cpu_score": cpu_score,
                 "gpu_score": gpu_score,
                 "overall_score": overall_score,
-                "avg_temp": float(temp)
-            }
+                "avg_temp": temp,
+                "ram_gb": ram_gb,
+                "ram_speed_gbps": ram_result["ram_speed_gbps"],
+                "disk_read_speed": disk_result["read_speed"],
+                "disk_write_speed": disk_result["write_speed"],
+                "disk_health_percent": disk_result["health_percent"],
+            },
         )
 
-        # --- Step 6: Store a safe metric sample ---
-        try:
-            BenchmarkMetric.objects.create(
-                benchmark=benchmark,
-                time=0,
-                cpu=float(cpu_result.get("avg_cpu", psutil.cpu_percent(interval=0.5) or 0.0)),
-                gpu=float(gpu_result.get("avg_gpu", gpu_usage) or 0.0),
-                temp=float(temp or 0.0)
-            )
-        except Exception:
-            pass
+        BenchmarkMetric.objects.create(
+            benchmark=benchmark,
+            time=0,
+            cpu=float(cpu_result.get("avg_cpu", 0.0)),
+            gpu=float(cpu_result.get("avg_gpu", gpu_usage)),
+            temp=float(temp),
+        )
 
-        # --- Step 7: Update user's specs ---
-        try:
-            from users.models import UserSpecs
-            import psutil
-            UserSpecs.objects.update_or_create(
-                user=user,
-                defaults={
-                    "cpu_model": cpu_model,
-                    "gpu_model": gpu_model,
-                    "ram_gb": ram_gb,
-                    "storage_gb": psutil.disk_usage('/').total / (1024 ** 3)
-                }
-            )
-        except Exception:
-            pass
+        # 7️⃣ Update User Specs
+        UserSpecs.objects.update_or_create(
+            user=user,
+            defaults={
+                "cpu_model": cpu_model,
+                "gpu_model": gpu_model,
+                "ram_gb": ram_gb,
+                "storage_gb": psutil.disk_usage("/").total / (1024 ** 3),
+            },
+        )
 
-        # --- Step 8: Bottleneck analysis ---
-        try:
-            bottleneck_data = analyze_bottlenecks({
-                "cpu_threads": psutil.cpu_count(logical=True) or 1,
-                "total_ram_gb": ram_gb,
-                "gpu_info": [{"name": gpu_model}],
-                "disk_total_gb": psutil.disk_usage('/').total / (1024 ** 3)
-            })
-        except Exception:
-            bottleneck_data = {}
-
-        # --- Step 9: Build response ---
-        from .serializers import BenchmarkSerializer
-        serializer = BenchmarkSerializer(benchmark)
-        data = serializer.data
-        data.update({
-            "raw_cpu_result": cpu_result,
-            "raw_gpu_result": gpu_result,
-            "bottleneckAnalysis": bottleneck_data,
-            "topScore": benchmark.overall_score,
-            "efficiencyPercent": 100.0,
-            "bottleneckComponent": None
+        # 8️⃣ Bottleneck Analysis
+        bottleneck_data = analyze_bottlenecks({
+            "cpu_score": cpu_score,
+            "gpu_score": gpu_score,
+            "ram_speed_gbps": ram_result["ram_speed_gbps"],
+            "disk_read_speed": disk_result["read_speed"],
+            "disk_write_speed": disk_result["write_speed"],
+            "disk_health_percent": disk_result["health_percent"],
+            "total_ram_gb": ram_gb,
+            "cpu_threads": psutil.cpu_count(logical=True),
+            "gpu_vram_gb": sysinfo.get("gpu", {}).get("vram", 0),
+            "avg_temp": temp,
         })
 
-        return Response(data, status=201)
+        data = BenchmarkSerializer(benchmark).data
+        data.update({
+            "ram_result": ram_result,
+            "disk_result": disk_result,
+            "bottleneckAnalysis": bottleneck_data,
+        })
+        return Response(data, status=status.HTTP_201_CREATED)
 
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())  # For dev debugging
-        return Response({"error": str(e)}, status=500)
-
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def live_metrics(request):
-    """Return one live system metric sample."""
-    try:
-        sample = run_samples(duration_seconds=1, sample_count=1)[0]
-        return Response(sample, status=status.HTTP_200_OK)
-    except Exception as e:
+        print(traceback.format_exc())
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def user_benchmarks(request):
-    """List all user benchmarks (latest first)."""
-    user = request.user
-    benchmarks = Benchmark.objects.filter(user=user).order_by('-timestamp')
-    serializer = BenchmarkSerializer(benchmarks, many=True)
-    return Response(serializer.data)
-
-
-# -------------------------
-# New endpoints
-# -------------------------
-@api_view(['GET'])
+# -----------------------------------------------
+# 🔹 Compare Two Benchmarks by Specs
+# -----------------------------------------------
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def compare_benchmarks(request):
     """
-    Compare this user's latest benchmark with other users that have the same CPU/GPU.
-    Query params:
-      - cpu_model (optional)
-      - gpu_model (optional)
-      - ram_gb (optional)
-      - page (optional)
-    If params omitted, uses user's latest benchmark snapshot.
+    Compare user’s hardware scores vs average system scores.
     """
-    user = request.user
-    cpu_model = request.query_params.get('cpu_model')
-    gpu_model = request.query_params.get('gpu_model')
-    ram_gb_q = request.query_params.get('ram_gb')
+    from statistics import mean, StatisticsError
 
-    # If not provided, try to derive from user's latest benchmark
-    if not cpu_model or not gpu_model:
-        latest = Benchmark.objects.filter(user=user).order_by('-timestamp').first()
-        if latest:
-            cpu_model = cpu_model or latest.cpu_model
-            gpu_model = gpu_model or latest.gpu_model
-            ram_gb_q = ram_gb_q or str(latest.ram_gb)
-
-    if not cpu_model or not gpu_model:
-        return Response({"error": "cpu_model and gpu_model required (or run a benchmark first)."}, status=status.HTTP_400_BAD_REQUEST)
+    cpu_model = request.query_params.get("cpu_model")
+    gpu_model = request.query_params.get("gpu_model")
+    ram_gb = float(request.query_params.get("ram_gb", 0))
 
     try:
-        try:
-            ram_gb = float(ram_gb_q) if ram_gb_q is not None else None
-        except Exception:
-            ram_gb = None
+        all_benchmarks = Benchmark.objects.all()
 
-        qs = Benchmark.objects.filter(cpu_model=cpu_model, gpu_model=gpu_model)
-        if ram_gb is not None:
-            qs = qs.filter(ram_gb__gte=ram_gb - 0.5, ram_gb__lte=ram_gb + 0.5)
+        # ✅ Safely compute averages — avoids StatisticsError when no data
+        cpu_scores = [float(b.cpu_score) for b in all_benchmarks if b.cpu_score and b.cpu_score > 0]
+        gpu_scores = [float(b.gpu_score) for b in all_benchmarks if b.gpu_score and b.gpu_score > 0]
 
-        # order by overall_score desc
-        qs = qs.order_by('-overall_score')
-        # take top 5 for quick comparison
-        top5 = qs[:5]
+        cpu_avg = round(mean(cpu_scores), 2) if cpu_scores else 0
+        gpu_avg = round(mean(gpu_scores), 2) if gpu_scores else 0
 
-        top_serialized = BenchmarkSerializer(top5, many=True).data
+        # ✅ Fetch latest benchmark matching user's system
+        user_benchmark = Benchmark.objects.filter(
+            cpu_model=cpu_model, gpu_model=gpu_model
+        ).last()
 
-        # find user's rank in this group (1-based)
-        all_scores = list(qs.values_list('overall_score', flat=True))
-        user_latest = Benchmark.objects.filter(user=user, cpu_model=cpu_model, gpu_model=gpu_model).order_by('-overall_score').first()
-        user_rank = None
-        user_score = None
-        if user_latest:
-            user_score = user_latest.overall_score
-            # compute rank
-            higher = sum(1 for s in all_scores if s > user_score)
-            user_rank = higher + 1
+        if not user_benchmark:
+            return Response(
+                {"message": "No matching benchmark found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        resp = {
-            "cpu_model": cpu_model,
-            "gpu_model": gpu_model,
-            "ram_gb": ram_gb,
-            "top5": top_serialized,
-            "user_rank": user_rank,
-            "user_score": user_score,
-            "count": qs.count()
-        }
-        return Response(resp, status=status.HTTP_200_OK)
+        return Response({
+            "user_system": {
+                "cpu": cpu_model,
+                "gpu": gpu_model,
+                "ram": ram_gb,
+                "scores": {
+                    "cpu": user_benchmark.cpu_score,
+                    "gpu": user_benchmark.gpu_score,
+                    "overall": user_benchmark.overall_score,
+                },
+            },
+            "average_scores": {
+                "cpu": cpu_avg,
+                "gpu": gpu_avg,
+            },
+        })
+
+    except StatisticsError:
+        return Response(
+            {"error": "Not enough data for comparison."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['GET'])
+# -----------------------------------------------
+# 🔹 Bottleneck Analysis (Direct Endpoint)
+# -----------------------------------------------
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def bottleneck_analysis(request):
     """
-    Return detailed bottleneck analysis for a given benchmark id or user's latest benchmark.
-    Query params:
-      - benchmark_id (optional)
+    Returns a detailed bottleneck analysis for a given benchmark.
     """
-    user = request.user
-    benchmark_id = request.query_params.get('benchmark_id')
-
+    benchmark_id = request.query_params.get("benchmark_id")
     try:
-        if benchmark_id:
-            benchmark = Benchmark.objects.filter(id=int(benchmark_id)).first()
-        else:
-            benchmark = Benchmark.objects.filter(user=user).order_by('-timestamp').first()
-
-        if not benchmark:
-            return Response({"error": "Benchmark not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Compare benchmark against best-of-same-specs
-        same_specs = Benchmark.objects.filter(
-            cpu_model=benchmark.cpu_model,
-            gpu_model=benchmark.gpu_model,
-            ram_gb__gte=benchmark.ram_gb - 0.5,
-            ram_gb__lte=benchmark.ram_gb + 0.5
-        ).exclude(id=benchmark.id)
-
-        top_score = same_specs.order_by('-overall_score').first()
-        efficiency_percent = 100.0
-        component = None
-        suggestions = []
-
-        if top_score and top_score.overall_score > 0:
-            efficiency_percent = round((benchmark.overall_score / top_score.overall_score) * 100.0, 2)
-            if efficiency_percent < 90:
-                if (top_score.cpu_score or 0) > 0 and benchmark.cpu_score < top_score.cpu_score * 0.9:
-                    component = "CPU"
-                    suggestions.append("CPU performing below peers — consider higher clocks or more cores.")
-                if (top_score.gpu_score or 0) > 0 and benchmark.gpu_score < top_score.gpu_score * 0.9:
-                    component = (component or "GPU")
-                    suggestions.append("GPU performing below peers — check drivers, thermal/throttling or upgrade.")
-                if not suggestions:
-                    component = "RAM/IO"
-                    suggestions.append("Investigate RAM usage or storage IO; compare configurations with top performers.")
-
-        # hardware spec analysis (generic)
-        hw_analysis = analyze_bottlenecks({
-            "cpu_threads": psutil.cpu_count(logical=True),
-            "total_ram_gb": benchmark.ram_gb,
-            "gpu_info": [{"name": benchmark.gpu_model}],
-            "disk_total_gb": psutil.disk_usage('/').total / (1024 ** 3),
-        })
-
-        resp = {
-            "benchmark_id": benchmark.id,
-            "cpu_model": benchmark.cpu_model,
-            "gpu_model": benchmark.gpu_model,
-            "ram_gb": benchmark.ram_gb,
+        benchmark = Benchmark.objects.get(id=benchmark_id)
+        bottleneck_data = analyze_bottlenecks({
             "cpu_score": benchmark.cpu_score,
             "gpu_score": benchmark.gpu_score,
-            "overall_score": benchmark.overall_score,
+            "ram_speed_gbps": getattr(benchmark, "ram_speed_gbps", 0),
+            "disk_read_speed": getattr(benchmark, "disk_read_speed", 0),
+            "disk_write_speed": getattr(benchmark, "disk_write_speed", 0),
+            "total_ram_gb": benchmark.ram_gb,
             "avg_temp": benchmark.avg_temp,
-            "efficiency_percent_vs_top": efficiency_percent,
-            "likely_bottleneck_component": component,
-            "suggestions": suggestions,
-            "hardware_analysis": hw_analysis
-        }
-        return Response(resp, status=status.HTTP_200_OK)
-
+        })
+        return Response(bottleneck_data)
+    except Benchmark.DoesNotExist:
+        return Response({"error": "Benchmark not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
+# -----------------------------------------------
+# 🔹 Live System Metrics
+# -----------------------------------------------
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def save_user_specs(request):
-    """
-    Save or update user's hardware specs (UserSpecs). Accepts optional cpu_model, gpu_model, ram_gb, storage_gb.
-    """
-    user = request.user
-    cpu_model = request.data.get('cpu_model')
-    gpu_model = request.data.get('gpu_model')
-    ram_gb = request.data.get('ram_gb')
-    storage_gb = request.data.get('storage_gb')
-
+def live_metrics(request):
     try:
-        # fallback to collector if fields missing
-        if not (cpu_model and gpu_model and ram_gb):
-            sysinfo = system_collector()
-            cpu_model = cpu_model or sysinfo.get("cpu", {}).get("model", "Unknown CPU")
-            gpu_model = gpu_model or sysinfo.get("gpu", {}).get("model", "Unknown GPU")
-            ram_total_repr = sysinfo.get("ram", {}).get("total", "0")
-            try:
-                ram_gb = float(str(ram_total_repr).split()[0])
-            except Exception:
-                ram_gb = float(ram_gb or 0)
+        cpu_percent = psutil.cpu_percent(interval=0.5)
+        ram_usage = psutil.virtual_memory().percent
+        temp = 0.0
+        gpu_load = 0.0
+        try:
+            gpus = GPUtil.getGPUs()
+            if gpus:
+                gpu = gpus[0]
+                gpu_load = round(gpu.load * 100, 2)
+                temp = getattr(gpu, "temperature", 0.0)
+        except Exception:
+            pass
 
-            storage_gb = storage_gb or (psutil.disk_usage('/').total / (1024 ** 3))
+        return Response({
+            "timestamp": time.time(),
+            "cpu": cpu_percent,
+            "gpu": gpu_load,
+            "ram": ram_usage,
+            "temp": temp,
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # create or update
-        specs, created = UserSpecs.objects.update_or_create(
-            user=user,
-            defaults={
-                'cpu_model': cpu_model,
-                'gpu_model': gpu_model,
-                'ram_gb': float(ram_gb),
-                'storage_gb': float(storage_gb or 0)
-            }
-        )
-        serializer = UserSpecsSerializer(specs)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+# -----------------------------------------------
+# 🔹 Fetch All Benchmarks of Authenticated User
+# -----------------------------------------------
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_benchmarks(request):
+    try:
+        benchmarks = Benchmark.objects.filter(user=request.user).order_by("-timestamp")
+        serializer = BenchmarkSerializer(benchmarks, many=True)
+        return Response(serializer.data)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
