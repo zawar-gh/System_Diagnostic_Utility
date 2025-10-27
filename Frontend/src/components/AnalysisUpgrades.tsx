@@ -113,15 +113,45 @@ setComparison(compareResp.data);
 
   const latest = benchmarks[0] ?? null;
 
-const upgradeRecommendations = latest && latest.bottleneckAnalysis
-  ? latest.bottleneckAnalysis.recommendations.map((rec: string, index: number) => ({
-      id: index + 1,
-      component: latest.bottleneckAnalysis.likely_bottleneck || "System",
-      recommended: rec,
-      color: '#ff0033',
-      boost: 10 + Math.round(Math.random() * 20),
-      price: '$—',
-    }))
+const upgradeRecommendations = latest
+  ? latest.bottleneckAnalysis?.recommendations?.length
+      ? latest.bottleneckAnalysis.recommendations.map((rec: string, index: number) => ({
+          id: index + 1,
+          component: latest.bottleneckAnalysis.likely_bottleneck || "System",
+          recommended: rec,
+          color: '#ff0033',
+          boost: 10 + Math.round(Math.random() * 20),
+          price: '$—',
+        }))
+      : [
+          {
+            id: 1,
+            component: 'CPU',
+            current: latest.cpu_model || 'Unknown CPU',
+            recommended: 'Consider higher single-thread clocks or more cores depending on workload',
+            boost: latest.cpu_score && latest.cpu_score < 200 ? 35 : 12,
+            price: '$—',
+            color: '#ff0033',
+          },
+          {
+            id: 2,
+            component: 'GPU',
+            current: latest.gpu_model || 'Unknown GPU',
+            recommended: 'Consider next-tier GPU for rendering / gaming workloads',
+            boost: latest.gpu_score && latest.gpu_score < 100 ? 30 : 10,
+            price: '$—',
+            color: '#9333ea',
+          },
+          {
+            id: 3,
+            component: 'RAM',
+            current: `${latest.ram_gb ?? 'Unknown'} GB`,
+            recommended: 'Upgrade RAM if usage is high while CPU idle',
+            boost: 10,
+            price: '$—',
+            color: '#22d3ee',
+          },
+        ]
   : [];
 
 
@@ -239,11 +269,7 @@ const upgradeRecommendations = latest && latest.bottleneckAnalysis
                       <div className="text-gray-400 text-xs">Performance Boost</div><div className="text-green-500 text-sm">+{item.boost}%</div>
                       <div className="text-gray-400 text-xs">Price Range</div><div className="text-white text-sm">{item.price}</div>
                     </div>
-                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                      <Button onClick={() => handleSaveWishlist(item)} className="w-full bg-transparent border-2 hover:bg-opacity-20 transition-all duration-300 text-sm py-2" style={{ borderColor: item.color, color: item.color, backgroundColor: `${item.color}10`, boxShadow: `0 0 15px ${item.color}40` }}>
-                        <Bookmark className="mr-2 h-3 w-3" /> Save to Wishlist
-                      </Button>
-                    </motion.div>
+                 
                   </div>
                 </Card>
               </motion.div>
