@@ -1,4 +1,4 @@
-//components/Dashboard.tsx
+// components/Dashboard.tsx
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { User, LogOut, Settings, Save } from 'lucide-react';
@@ -12,6 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { SystemOverview } from './SystemOverview';
 import { AnalysisUpgrades } from './AnalysisUpgrades';
 import { ProfileModal } from './ProfileModal';
+import { SavedResultsModal } from './SavedResultsModal'; // import the new modal
 import { MatrixBackground } from './MatrixBackground';
 
 interface DashboardProps {
@@ -22,8 +23,8 @@ interface DashboardProps {
 export function Dashboard({ user, onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'analysis'>('overview');
   const [showProfile, setShowProfile] = useState(false);
+  const [showSavedResults, setShowSavedResults] = useState(false); // new state for popup
 
-  // Fallback if user is undefined (very rare, just for safety)
   if (!user) return <p className="text-white text-center mt-20">Loading user...</p>;
 
   return (
@@ -115,7 +116,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 <Settings className="mr-2 h-4 w-4" />
                 Edit Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowProfile(true)} className="cursor-pointer hover:bg-red-600/20">
+              <DropdownMenuItem onClick={() => setShowSavedResults(true)} className="cursor-pointer hover:bg-red-600/20">
                 <Save className="mr-2 h-4 w-4" />
                 Saved Results
               </DropdownMenuItem>
@@ -139,12 +140,14 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         >
           {activeTab === 'overview' 
             ? <SystemOverview /> 
-            : <AnalysisUpgrades user={user} /> // ✅ pass user prop
+            : <AnalysisUpgrades user={user} />
           }
         </motion.div>
       </div>
 
+      {/* Modals */}
       <ProfileModal open={showProfile} onClose={() => setShowProfile(false)} onLogout={onLogout} />
+      <SavedResultsModal open={showSavedResults} onClose={() => setShowSavedResults(false)} />
     </div>
   );
 }
