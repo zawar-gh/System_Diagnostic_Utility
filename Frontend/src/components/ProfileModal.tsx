@@ -8,7 +8,7 @@ import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Upload, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { API } from '../api/axiosConfig';
-import { SavedResultsModal } from './SavedResultsModal'; // import the new modal
+import { SavedResultsModal } from './SavedResultsModal';
 
 interface UserData {
   id: number;
@@ -27,8 +27,10 @@ export function ProfileModal({ open, onClose, onLogout }: ProfileModalProps) {
   const [user, setUser] = useState<UserData | null>(null);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState<UserData>({ id: 0, username: '', email: '', avatar: '' });
-  const [showSavedResults, setShowSavedResults] = useState(false); // new state for popup
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [showSavedResults, setShowSavedResults] = useState(false);
 
+  // Fetch profile from backend
   const fetchProfile = async () => {
     try {
       const { data } = await API.get('/users/profile/');
@@ -41,19 +43,35 @@ export function ProfileModal({ open, onClose, onLogout }: ProfileModalProps) {
   };
 
   useEffect(() => {
-    if (open) {
-      fetchProfile();
-    }
+    if (open) fetchProfile();
   }, [open]);
 
+  // Handle avatar file selection
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      setFormData({ ...formData, avatar: URL.createObjectURL(file) }); // Preview
+    }
+  };
+
+  // Save profile changes
   const handleSave = async () => {
     try {
-      const { data } = await API.put('/users/profile/update/', {
-        username: formData.username,
-        email: formData.email,
+      const dataToSend = new FormData();
+      dataToSend.append('username', formData.username);
+      dataToSend.append('email', formData.email);
+      if (avatarFile) dataToSend.append('avatar', avatarFile);
+
+      const { data } = await API.put('/users/profile/update/', dataToSend, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
+
+      // Update frontend with backend response (including avatar URL)
       setUser(data);
+      setFormData({ username: data.username, email: data.email, avatar: data.avatar });
       setEditing(false);
+      setAvatarFile(null);
       toast.success('Profile updated successfully');
     } catch (err) {
       toast.error('Failed to update profile');
@@ -61,15 +79,7 @@ export function ProfileModal({ open, onClose, onLogout }: ProfileModalProps) {
     }
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setFormData({ ...formData, avatar: reader.result as string });
-      reader.readAsDataURL(file);
-    }
-  };
-
+  // Delete account
   const handleDeleteAccount = async () => {
     if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
     try {
@@ -102,6 +112,7 @@ export function ProfileModal({ open, onClose, onLogout }: ProfileModalProps) {
                   <AvatarImage src={editing ? formData.avatar : user.avatar} />
                   <AvatarFallback>{user.username[0]?.toUpperCase()}</AvatarFallback>
                 </Avatar>
+
                 {editing && (
                   <motion.label
                     whileHover={{ scale: 1.1 }}
@@ -143,7 +154,7 @@ export function ProfileModal({ open, onClose, onLogout }: ProfileModalProps) {
               </div>
             </div>
 
-            {/* Button to open Saved Results Modal */}
+            {/* Saved Results Modal Button */}
             <Button onClick={() => setShowSavedResults(true)} className="w-full bg-transparent border-2 border-red-600 text-white hover:bg-red-600/20 transition-all duration-300 text-sm h-9">
               Saved Results
             </Button>
