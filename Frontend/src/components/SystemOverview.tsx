@@ -41,6 +41,27 @@ export function SystemOverview() {
   const [scanning, setScanning] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
   const [benchmarking, setBenchmarking] = useState(false);
+  // 🚀 Live metrics: start/stop automatically when benchmarking toggles
+useEffect(() => {
+  let poller: ReturnType<typeof setInterval> | null = null;
+
+
+  if (benchmarking) {
+    poller = setInterval(async () => {
+      try {
+        const { data } = await API.get("/benchmarks/live/");
+        setChartData((prev) => [...prev.slice(-15), data]);
+      } catch (err) {
+        console.error("Live metrics fetch failed", err);
+      }
+    }, 1000);
+  }
+
+  return () => {
+    if (poller) clearInterval(poller);
+  };
+}, [benchmarking]);
+
   const [benchmarkProgress, setBenchmarkProgress] = useState(0);
   const [benchmarkResults, setBenchmarkResults] =
     useState<BenchmarkResult | null>(null);
@@ -70,18 +91,6 @@ export function SystemOverview() {
 
   const handleRescan = () => fetchSystemData();
 
-  // 🚀 Live metric polling during stress test
-  const startLivePolling = () => {
-    const poller = setInterval(async () => {
-      try {
-        const { data } = await API.get("/benchmarks/live/");
-        setChartData((prev) => [...prev.slice(-15), data]);
-      } catch {
-        console.error("Live poll failed");
-      }
-    }, 1000);
-    return poller;
-  };
 
   // 🧠 Run benchmark (CPU/GPU/Hybrid)
   const handleBenchmark = async (type: string) => {
@@ -96,9 +105,6 @@ export function SystemOverview() {
       setBenchmarkProgress((prev) => (prev < 90 ? prev + 3 : prev));
     }, 600);
 
-    // start polling
-    const poller = startLivePolling();
-
     try {
       const { data: result } = await API.post("/benchmarks/run/", { type });
       setBenchmarkResults(result);
@@ -107,7 +113,6 @@ export function SystemOverview() {
       toast.error("Benchmark failed");
     } finally {
       clearInterval(progressTimer);
-      clearInterval(poller);
       setBenchmarking(false);
       setBenchmarkProgress(100);
     }
@@ -254,20 +259,60 @@ export function SystemOverview() {
             </DialogTitle>
           </DialogHeader>
 
-          {/* Choose type */}
-          {!benchmarking && !benchmarkResults && (
-            <div className="grid grid-cols-2 gap-6 py-6">
-              {["CPU", "GPU", "Hybrid"].map((type) => (
-                <Button
-                  key={type}
-                  onClick={() => handleBenchmark(type.toLowerCase())}
-                  className="h-32 flex flex-col justify-center items-center border-2 text-white"
-                >
-                  {type}
-                </Button>
-              ))}
-            </div>
-          )}
+{/* Choose type */}
+{!benchmarking && !benchmarkResults && (
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-6">
+    {[
+      {
+        type: "CPU",
+        icon: Cpu,
+        gradient: "from-[#00ff99] to-[#00ffaa]",
+        glow: "#00ffaa",
+        desc: "Multi-core Stress Test",
+      },
+      {
+        type: "GPU",
+        icon: Monitor,
+        gradient: "from-[#00ccff] to-[#0099ff]",
+        glow: "#00ccff",
+        desc: "GPU Performance & Thermal Stability",
+      },
+      {
+        type: "System",
+        icon: MemoryStick,
+        gradient: "from-[#ff00ff] to-[#ff0099]",
+        glow: "#ff00ff",
+        desc: "CPU, GPU, RAM & Storage Test",
+      },
+    ].map(({ type, icon: Icon, gradient, glow, desc }) => (
+      <motion.button
+        key={type}
+        onClick={() => handleBenchmark(type.toLowerCase())}
+        whileHover={{
+          scale: 1.06,
+          boxShadow: `0 0 25px ${glow}, 0 0 50px ${glow}40`,
+        }}
+        whileTap={{ scale: 0.96 }}
+        className={`relative h-36 p-4 flex flex-col justify-center items-center rounded-xl border border-white/10 
+                    bg-gradient-to-br ${gradient} text-white shadow-[0_0_20px_#00000040] 
+                    transition-all duration-300 hover:border-white/30`}
+        style={{
+          fontFamily: "Orbitron, sans-serif",
+          textShadow: `0 0 6px ${glow}`,
+          animation: "neonPulse 3s ease-in-out infinite",
+          boxShadow: `0 0 15px ${glow}40`,
+        }}
+      >
+        <Icon className="h-10 w-10 mb-2 drop-shadow-[0_0_10px_white]" />
+        <span className="text-lg font-bold tracking-wide">{type}</span>
+        <span className="text-[11px] mt-1 text-gray-200 opacity-80 text-center px-2">
+          {desc}
+        </span>
+      </motion.button>
+    ))}
+  </div>
+)}
+
 
           {/* Live benchmark */}
           {benchmarking && (

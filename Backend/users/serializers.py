@@ -9,6 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'avatar']
+        
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
@@ -35,7 +36,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         profile_data = validated_data.pop('profile', {})
         avatar = profile_data.get('avatar')
 
-        print("Received avatar:", avatar)  # <-- DEBUG
+        print("Received avatar:", avatar)  
 
         instance.username = validated_data.get('username', instance.username)
         instance.email = validated_data.get('email', instance.email)
@@ -45,7 +46,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         if avatar:
           profile.avatar = avatar
           profile.save()
-          print("Saved avatar at:", profile.avatar.path)  # <-- DEBUG
+          print("Saved avatar at:", profile.avatar.path) 
 
         return instance
 

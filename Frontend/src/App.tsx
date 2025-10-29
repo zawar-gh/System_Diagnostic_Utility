@@ -67,18 +67,40 @@ export default function App() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <motion.div
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="text-white text-lg"
-        >
-          Loading...
-        </motion.div>
-      </div>
-    );
-  }
+  return (
+    <motion.div
+      initial={{ background: "linear-gradient(to bottom right, #000000, #000000)" }}
+      animate={{
+        background: [
+          "linear-gradient(to bottom right, #000000, #000000)",
+          "linear-gradient(to bottom right, #8B0000, #000000)",
+          "linear-gradient(to bottom right, #ff0000, #000000)",
+          "linear-gradient(to bottom right, #8B0000, #000000)",
+          "linear-gradient(to bottom right, #000000, #000000)",
+        ],
+      }}
+      transition={{
+        duration: 6,
+        ease: "easeInOut",
+        repeat: Infinity,
+        repeatType: "reverse",
+      }}
+      className="min-h-screen flex items-center justify-center"
+    >
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0.2, 1, 0.2] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className="text-center"
+      >
+        <h1 className="text-2xl sm:text-3xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-red-700 drop-shadow-[0_0_10px_#ff0000]">
+          Getting your system info...
+        </h1>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 
   return (
     <>

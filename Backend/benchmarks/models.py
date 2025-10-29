@@ -1,12 +1,9 @@
+#benchmark/models
 from django.db import models
 from django.contrib.auth.models import User
 
 
 class Benchmark(models.Model):
-    """
-    Stores one benchmark session result, including CPU, GPU, RAM, and storage info.
-    Supports hybrid testing, temperature tracking, and hardware snapshots.
-    """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='benchmarks')
     type = models.CharField(max_length=50)  # "cpu", "gpu", "hybrid", "ram", "disk"
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -44,19 +41,19 @@ class Benchmark(models.Model):
 
 
 class BenchmarkMetric(models.Model):
-    """
-    Time-based performance samples collected during benchmark runs.
-    Each metric captures CPU, GPU, temperature, and optionally RAM usage.
-    """
     benchmark = models.ForeignKey(Benchmark, on_delete=models.CASCADE, related_name='metrics')
     time = models.IntegerField()              # time in seconds
     cpu = models.FloatField()                 # CPU usage %
     gpu = models.FloatField()                 # GPU usage %
     ram_usage = models.FloatField(default=0)  # RAM usage %
     temp = models.FloatField()                # Temperature in Celsius
+    ram_speed_gbps = models.FloatField(default=0.0)
+    disk_speed = models.FloatField(default=0.0)
+    overall_score = models.FloatField(default=0.0)
 
     def __str__(self):
         return (
             f"{self.benchmark.type.upper()} @ {self.time}s | "
-            f"CPU:{self.cpu:.1f}% GPU:{self.gpu:.1f}% TEMP:{self.temp:.1f}°C"
+            f"CPU:{self.cpu:.1f}% GPU:{self.gpu:.1f}% TEMP:{self.temp:.1f}°C | "
+            f"RAM:{self.ram_speed_gbps:.2f}GB/s DISK:{self.disk_speed:.1f}MB/s"
         )

@@ -6,7 +6,6 @@ from django.contrib.auth.models import User
 from .serializers import UserSerializer, RegisterSerializer, ProfileUpdateSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 
-# ------------------------------
 # Register View
 # ------------------------------
 class RegisterView(generics.CreateAPIView):
@@ -23,7 +22,7 @@ class RegisterView(generics.CreateAPIView):
             status=status.HTTP_201_CREATED
         )
 
-# ------------------------------
+
 # Profile View
 # ------------------------------
 class ProfileView(generics.RetrieveAPIView):
@@ -33,25 +32,24 @@ class ProfileView(generics.RetrieveAPIView):
     def get_object(self):
         return self.request.user
 
-# ------------------------------
 # Profile Update View (with avatar upload)
 # ------------------------------
 class ProfileUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]  # <-- required for file uploads
+    parser_classes = [MultiPartParser, FormParser]  
 
     def put(self, request):
         serializer = ProfileUpdateSerializer(
             request.user,
             data=request.data,
             partial=True,
-            context={'request': request}  # important for absolute avatar URL
+            context={'request': request}  
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-# ------------------------------
+
 # Profile Delete View
 # ------------------------------
 class ProfileDeleteView(APIView):

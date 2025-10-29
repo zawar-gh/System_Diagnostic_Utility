@@ -6,7 +6,16 @@ from users.models import UserSpecs
 class BenchmarkMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = BenchmarkMetric
-        fields = ['time', 'cpu', 'gpu', 'temp']
+        fields = [
+            "time",
+            "cpu",
+            "gpu",
+            "ram_speed_gbps",
+            "disk_speed",
+            "temp",
+            "overall_score",
+        ]
+
 
 class BenchmarkSerializer(serializers.ModelSerializer):
     metrics = BenchmarkMetricSerializer(many=True, read_only=True)

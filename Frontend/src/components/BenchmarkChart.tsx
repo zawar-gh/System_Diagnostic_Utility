@@ -18,7 +18,7 @@ interface BenchmarkChartProps {
 
 export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
   return (
-    <div className="w-full h-[350px] bg-[#0a0a0a] border border-red-500/30 rounded-2xl p-3 shadow-lg">
+    <div className="w-full h-[400px] bg-[#0a0a0a] border border-red-500/30 rounded-2xl p-3 shadow-lg">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-white font-orbitron text-sm tracking-wider">
           {isRunning ? "📡 Live Performance Feed" : "📈 Benchmark Overview"}
@@ -34,7 +34,7 @@ export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
         )}
       </div>
 
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={350}>
         <LineChart
           data={data}
           margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
@@ -68,7 +68,7 @@ export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
             }}
           />
 
-          {/* CPU line */}
+          {/* CPU Usage */}
           <Line
             type="monotone"
             dataKey="cpu"
@@ -80,7 +80,7 @@ export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
             animationDuration={500}
           />
 
-          {/* GPU line */}
+          {/* GPU Usage */}
           <Line
             type="monotone"
             dataKey="gpu"
@@ -92,7 +92,31 @@ export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
             animationDuration={500}
           />
 
-          {/* Temperature line */}
+          {/* RAM Bandwidth */}
+          <Line
+            type="monotone"
+            dataKey="ram_speed_gbps"
+            stroke="#facc15"
+            strokeWidth={2}
+            dot={false}
+            name="RAM Bandwidth GB/s"
+            isAnimationActive={isRunning}
+            animationDuration={500}
+          />
+
+          {/* Disk Speed */}
+          <Line
+            type="monotone"
+            dataKey="disk_speed"
+            stroke="#10b981"
+            strokeWidth={2}
+            dot={false}
+            name="Disk Speed MB/s"
+            isAnimationActive={isRunning}
+            animationDuration={500}
+          />
+
+          {/* Temperature */}
           <Line
             type="monotone"
             dataKey="temp"
@@ -100,6 +124,18 @@ export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
             strokeWidth={2}
             dot={false}
             name="Temperature °C"
+            isAnimationActive={isRunning}
+            animationDuration={500}
+          />
+
+          {/* Optional: Overall Score */}
+          <Line
+            type="monotone"
+            dataKey="overall_score"
+            stroke="#f43f5e"
+            strokeWidth={2}
+            dot={false}
+            name="Overall Score"
             isAnimationActive={isRunning}
             animationDuration={500}
           />
