@@ -165,7 +165,7 @@ def run_disk_stress_test(duration_seconds=5):
 # ----------------------------
 # FULL SYSTEM HYBRID TEST (robust)
 # ----------------------------
-def run_hybrid_stress_test(duration_seconds=8):
+def run_hybrid_stress_test(duration_seconds=6):
     """
     True concurrent system stress test — CPU, GPU, RAM, and Disk.
     Each runs in a dedicated thread and returns combined metrics.

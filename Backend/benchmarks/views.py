@@ -288,6 +288,17 @@ def user_benchmarks(request):
     try:
         benchmarks = Benchmark.objects.filter(user=request.user).order_by("-timestamp")
         serializer = BenchmarkSerializer(benchmarks, many=True)
-        return Response(serializer.data)
+
+        # ✅ Add ram_result and disk_result for frontend compatibility
+        data = serializer.data
+        for b in data:
+            b["ram_result"] = {"ram_speed_gbps": b.get("ram_speed_gbps")}
+            b["disk_result"] = {
+                "read_speed": b.get("disk_read_speed"),
+                "write_speed": b.get("disk_write_speed"),
+            }
+
+        return Response(data)
+
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

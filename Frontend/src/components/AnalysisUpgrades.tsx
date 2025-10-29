@@ -121,16 +121,14 @@ const upgradeRecommendations = latest
           recommended: rec,
           color: '#ff0033',
           boost: 10 + Math.round(Math.random() * 20),
-          price: '$—',
         }))
       : [
           {
             id: 1,
             component: 'CPU',
             current: latest.cpu_model || 'Unknown CPU',
-            recommended: 'Consider higher single-thread clocks or more cores depending on workload',
+            recommended: 'Consider higher single-thread speed CPU',
             boost: latest.cpu_score && latest.cpu_score < 200 ? 35 : 12,
-            price: '$—',
             color: '#ff0033',
           },
           {
@@ -139,7 +137,6 @@ const upgradeRecommendations = latest
             current: latest.gpu_model || 'Unknown GPU',
             recommended: 'Consider next-tier GPU for rendering / gaming workloads',
             boost: latest.gpu_score && latest.gpu_score < 100 ? 30 : 10,
-            price: '$—',
             color: '#9333ea',
           },
           {
@@ -148,7 +145,6 @@ const upgradeRecommendations = latest
             current: `${latest.ram_gb ?? 'Unknown'} GB`,
             recommended: 'Upgrade RAM if usage is high while CPU idle',
             boost: 10,
-            price: '$—',
             color: '#22d3ee',
           },
         ]
@@ -267,7 +263,6 @@ const upgradeRecommendations = latest
                     <div className="text-gray-400 text-xs">Recommended</div><div className="text-white text-sm">{item.recommended}</div>
                     <div className="flex justify-between items-center pt-3 border-t border-gray-700">
                       <div className="text-gray-400 text-xs">Performance Boost</div><div className="text-green-500 text-sm">+{item.boost}%</div>
-                      <div className="text-gray-400 text-xs">Price Range</div><div className="text-white text-sm">{item.price}</div>
                     </div>
                  
                   </div>
