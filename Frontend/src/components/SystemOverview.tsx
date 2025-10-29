@@ -30,9 +30,9 @@ interface BenchmarkResult {
   type: string;
   timestamp: string;
   metrics: BenchmarkMetric[];
-  cpuScore?: number;
-  gpuScore?: number;
-  overallScore?: number;
+  cpu_score?: number;
+  gpu_score?: number;
+  overall_score?: number;
   chartData?: BenchmarkMetric[];
 }
 
@@ -93,30 +93,52 @@ useEffect(() => {
 
 
   // 🧠 Run benchmark (CPU/GPU/Hybrid)
-  const handleBenchmark = async (type: string) => {
-    setBenchmarkType(type);
-    setBenchmarking(true);
-    setBenchmarkProgress(0);
-    setChartData([]);
-    setBenchmarkResults(null);
+const handleBenchmark = async (type: string) => {
+  setBenchmarkType(type);
+  setBenchmarking(true);
+  setBenchmarkProgress(0);
+  setChartData([]);
+  setBenchmarkResults(null);
 
-    // progress animation
-    const progressTimer = setInterval(() => {
-      setBenchmarkProgress((prev) => (prev < 90 ? prev + 3 : prev));
-    }, 600);
-
+  // Start polling live metrics every second
+  const poller = setInterval(async () => {
     try {
-      const { data: result } = await API.post("/benchmarks/run/", { type });
-      setBenchmarkResults(result);
-      toast.success("Benchmark complete!");
-    } catch {
-      toast.error("Benchmark failed");
-    } finally {
-      clearInterval(progressTimer);
-      setBenchmarking(false);
-      setBenchmarkProgress(100);
+      const { data } = await API.get("/benchmarks/live/"); // backend must return latest component metrics
+      const metric: BenchmarkMetric = {
+        time: Math.floor(Date.now() / 1000),
+        cpu: data.cpu,
+        gpu: data.gpu,
+        temp: data.temp,
+        ram_speed_gbps: data.ram_speed_gbps,
+        disk_speed: data.disk_speed,
+        overall_score: data.overall_score,
+      };
+      setChartData((prev) => [...prev.slice(-30), metric]); // keep last 30 samples
+    } catch (err) {
+      console.error("Live metrics fetch failed", err);
     }
-  };
+  }, 1000);
+
+  // Animate progress
+  const progressTimer = setInterval(() => {
+    setBenchmarkProgress((prev) => (prev < 90 ? prev + 3 : prev));
+  }, 600);
+
+  try {
+    // Run the full benchmark (CPU/GPU/RAM/Disk/Hybrid)
+    const { data: finalResult } = await API.post("/benchmarks/run/", { type });
+    setBenchmarkResults(finalResult); // final result
+    toast.success("Benchmark complete!");
+  } catch {
+    toast.error("Benchmark failed");
+  } finally {
+    clearInterval(progressTimer);
+    clearInterval(poller);
+    setBenchmarking(false);
+    setBenchmarkProgress(100);
+  }
+};
+
 
   if (!systemData)
     return (

@@ -20,55 +20,6 @@ from .serializers import BenchmarkSerializer, UserSpecsSerializer
 from diagnostics.utils.system_collector import get_system_info as system_collector
 from diagnostics.utils.bottleneck_analyzer import analyze_bottlenecks
 
-
-#  Helper: Disk and RAM Performance Benchmarks
-# -----------------------------------------------
-
-def measure_disk_speed():
-    """Simple sequential disk read/write speed test using tempfile."""
-    try:
-        tmp_file = os.path.join(tempfile.gettempdir(), "sdu_disk_test.tmp")
-        data = b"x" * (20 * 1024 * 1024)  # 20 MB buffer
-
-        # Write speed
-        start = time.time()
-        with open(tmp_file, "wb") as f:
-            f.write(data)
-        write_speed = 20 / (time.time() - start)  # MB/s
-
-        # Read speed
-        start = time.time()
-        with open(tmp_file, "rb") as f:
-            _ = f.read()
-        read_speed = 20 / (time.time() - start)  # MB/s
-
-        os.remove(tmp_file)
-
-        avg_speed = (read_speed + write_speed) / 2
-        health_percent = min(100, max(30, (avg_speed / 400) * 100))  # 400 MB/s baseline
-
-        return {
-            "read_speed": round(read_speed, 2),
-            "write_speed": round(write_speed, 2),
-            "health_percent": round(health_percent, 1),
-        }
-    except Exception:
-        return {"read_speed": 0.0, "write_speed": 0.0, "health_percent": 0.0}
-
-
-def measure_ram_speed():
-    """Estimate RAM copy bandwidth in GB/s."""
-    try:
-        a = np.random.rand(20_000_000)  # ~160 MB
-        start = time.time()
-        b = a.copy()
-        duration = time.time() - start
-        speed_gbps = (a.nbytes / duration) / (1024 ** 3)
-        return {"ram_speed_gbps": round(speed_gbps, 2)}
-    except Exception:
-        return {"ram_speed_gbps": 0.0}
-
-
 #  Run Full Benchmark
 # -----------------------------------------------
 
@@ -103,7 +54,7 @@ def run_benchmark(request):
             results = run_ram_stress_test(duration_seconds=10)
         elif bench_type == "disk":
             results = run_disk_stress_test(duration_seconds=10)
-        elif bench_type == "hybrid":
+        elif bench_type in ("hybrid","system"):
             results = run_hybrid_stress_test(duration_seconds=15)
 
         # Fill missing keys to keep schema consistent
