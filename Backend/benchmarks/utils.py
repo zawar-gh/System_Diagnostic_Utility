@@ -130,14 +130,25 @@ def run_gpu_stress_test(duration_seconds=5, n=2_000_000) -> Dict[str, float]:
 # RAM STRESS TEST
 # ----------------------------
 def run_ram_stress_test(duration_seconds=5):
-    size = max(int(psutil.virtual_memory().total*0.1), 50*1024*1024)
-    data = np.random.rand(size//8).astype(np.float64)
+    import numpy as np, time, psutil
+
+    # Allocate ~20% of total RAM but cap at 1 GB
+    total_mem = psutil.virtual_memory().total
+    size = min(int(total_mem * 0.2), 1_000_000_000)
+    arr = np.random.rand(size // 8).astype(np.float64)
+
     start = time.time()
+    ops = 0
     while time.time() - start < duration_seconds:
-        _ = data.copy() * 1.1
+        # In-place modify and copy — simulates read+write traffic
+        arr *= 1.0001
+        arr2 = arr.copy()
+        ops += 1
+
     elapsed = time.time() - start
-    gbps = (data.nbytes / elapsed) / (1024**3)
-    return {"ram_speed_gbps": round(gbps,2)}
+    total_bytes = arr.nbytes * ops * 2  # read + write per loop
+    ram_speed_gbps = (total_bytes / elapsed) / (1024 ** 3)
+    return {"ram_speed_gbps": round(ram_speed_gbps, 2)}
 
 # ----------------------------
 # DISK STRESS TEST
@@ -165,7 +176,7 @@ def run_disk_stress_test(duration_seconds=5):
 # ----------------------------
 # FULL SYSTEM HYBRID TEST (robust)
 # ----------------------------
-def run_hybrid_stress_test(duration_seconds=6):
+def run_hybrid_stress_test(duration_seconds=5):
     """
     True concurrent system stress test — CPU, GPU, RAM, and Disk.
     Each runs in a dedicated thread and returns combined metrics.
