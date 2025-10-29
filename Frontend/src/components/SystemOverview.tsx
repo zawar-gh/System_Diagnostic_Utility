@@ -332,9 +332,9 @@ useEffect(() => {
           {benchmarkResults && !benchmarking && (
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-3 text-sm font-mono">
-                <div>CPU Score: {benchmarkResults.cpuScore ?? "-"}</div>
-                <div>GPU Score: {benchmarkResults.gpuScore ?? "-"}</div>
-                <div>Overall: {benchmarkResults.overallScore ?? "-"}</div>
+                <div>CPU Score: {benchmarkResults.cpu_score ?? "-"}</div>
+                <div>GPU Score: {benchmarkResults.gpu_score ?? "-"}</div>
+                <div>Overall: {benchmarkResults.overall_score ?? "-"}</div>
               </div>
 
               <BenchmarkChart data={chartData} isRunning={false} />
