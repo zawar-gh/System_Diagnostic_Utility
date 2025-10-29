@@ -267,7 +267,9 @@ def live_metrics(request):
         # RAM + Disk lightweight estimates
         ram_speed = round(psutil.virtual_memory().percent / 10, 2)  # simple proxy
 
-        disk_speed = 50.0  # placeholder, you can implement a small disk test if needed
+           # ✅ Replace placeholder with a very short disk test
+        disk_result = run_disk_stress_test(duration_seconds=0.5)
+        disk_speed = disk_result.get("disk_speed", 0.0)
 
         overall_score = round(cpu_percent + gpu_load + ram_speed * 5 + disk_speed * 0.2, 2)
 
