@@ -225,23 +225,16 @@ const upgradeRecommendations = latest
 {latest?.disk_result && (
   <>
     <div className="flex justify-between mb-2">
-      <span className="text-gray-400">Disk Read Speed</span>
+      <span className="text-gray-400">Disk Speed</span>
       <span className="text-white">{latest.disk_result.read_speed} MB/s</span>
     </div>
     <Progress
       value={Math.min(latest.disk_result.read_speed ?? 0, 1000) / 10}
       className="h-3"
     />
-    <div className="flex justify-between mb-2">
-      <span className="text-gray-400">Disk Write Speed</span>
-      <span className="text-white">{latest.disk_result.write_speed} MB/s</span>
-    </div>
-    <Progress
-      value={Math.min(latest.disk_result.write_speed ?? 0, 1000) / 10}
-      className="h-3"
-    />
   </>
 )}
+
 
               </div>
             ) : <p className="text-gray-400 text-sm">No benchmark data available.</p>}
@@ -281,27 +274,95 @@ const upgradeRecommendations = latest
           </TabsList>
 
           <TabsContent value="results" className="mt-4">
-            {benchmarks.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">No benchmark results yet.</div> :
-              <div className="space-y-3">
-                {benchmarks.map((result, index) => (
-                  <motion.div key={index} className="bg-black/50 border border-red-600/30 p-3 rounded" whileHover={{ boxShadow: '0 0 20px rgba(255,0,0,0.3)' }}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="text-white capitalize text-sm">{result.type} Benchmark</div>
-                        <div className="text-gray-400 text-xs">{new Date(result.timestamp).toLocaleString()}</div>
-                      </div>
-                      <div className="text-red-500 text-sm" style={{ fontFamily: 'Orbitron, sans-serif' }}>{result.overall_score ?? '-'}</div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 text-xs">
-                      <div><div className="text-gray-400">CPU Score</div><div className="text-white">{result.cpu_score ?? '-'}</div></div>
-                      <div><div className="text-gray-400">GPU Score</div><div className="text-white">{result.gpu_score ?? '-'}</div></div>
-                      <div><div className="text-gray-400">Avg Temp</div><div className="text-white">{result.avg_temp ?? '-'}°C</div></div>
-                    </div>
-                  </motion.div>
-                ))}
+  {benchmarks.length === 0 ? (
+    <div className="text-center text-gray-400 py-6 text-sm">
+      No benchmark results yet.
+    </div>
+  ) : (
+    <div className="space-y-3">
+      {benchmarks.map((result, index) => (
+        <motion.div
+          key={index}
+          className="bg-black/50 border border-red-600/30 p-3 rounded"
+          whileHover={{ boxShadow: '0 0 20px rgba(255,0,0,0.3)' }}
+        >
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <div className="text-white capitalize text-sm">
+                {result.type} Benchmark
               </div>
-            }
-          </TabsContent>
+              <div className="text-gray-400 text-xs">
+                {new Date(result.timestamp).toLocaleString()}
+              </div>
+            </div>
+            <div
+              className="text-red-500 text-sm"
+              style={{ fontFamily: 'Orbitron, sans-serif' }}
+            >
+              {result.overall_score ?? '-'}
+            </div>
+          </div>
+
+          {/* ✅ Clean formatted system scores */}
+          <div className="mt-2 border-t border-gray-700 pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+            {/* CPU */}
+            <div>
+              <div className="text-gray-400 uppercase tracking-wide">CPU</div>
+              <div className="text-white font-medium">
+                {result.cpu_model || 'Standard'}{' '}
+                <span className="text-gray-400">—</span>{' '}
+                {result.cpu_score ?? '-'}
+              </div>
+            </div>
+
+            {/* GPU */}
+            <div>
+              <div className="text-gray-400 uppercase tracking-wide">GPU</div>
+              <div className="text-white font-medium">
+                {result.gpu_model || 'Standard'}{' '}
+                <span className="text-gray-400">—</span>{' '}
+                {result.gpu_score ?? '-'}
+              </div>
+            </div>
+
+            {/* RAM */}
+            <div>
+              <div className="text-gray-400 uppercase tracking-wide">RAM</div>
+              <div className="text-white font-medium">
+                {result.ram_type
+                  ? `${result.ram_type} (${result.ram_gb ?? '?'}GB)`
+                  : 'Standard'}{' '}
+                <span className="text-gray-400">—</span>{' '}
+                {result.ram_score ?? '-'}
+              </div>
+            </div>
+
+            {/* DISK */}
+            <div>
+              <div className="text-gray-400 uppercase tracking-wide">DISK</div>
+              <div className="text-white font-medium">
+                {result.storage_type || 'Standard'}{' '}
+                <span className="text-gray-400">—</span>{' '}
+                {result.disk_score ?? '-'}
+              </div>
+            </div>
+
+            {/* TEMP */}
+            <div>
+              <div className="text-gray-400 uppercase tracking-wide">
+                AVG TEMP
+              </div>
+              <div className="text-white font-medium">
+                {result.avg_temp ?? '-'}°C
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  )}
+</TabsContent>
+
 
           <TabsContent value="reviews" className="mt-4">
             <div className="mb-4">

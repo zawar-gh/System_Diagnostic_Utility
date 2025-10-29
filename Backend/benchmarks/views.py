@@ -70,10 +70,12 @@ def run_benchmark(request):
         gpu_temp = get_gpu_temp() or 0.0
         avg_temp = round((cpu_temp + gpu_temp) / 2, 1)
 
-        # 4️⃣ Compute Scores
-        ram_score = round(ram_speed * 50, 2)
-        disk_score = round(disk_speed * 0.2, 2)
+        # 4️⃣ Compute Scores (normalized for realism)
+        # Normalize RAM and Disk to a 0–100 scale based on realistic performance ranges
+        ram_score = min((ram_speed / 50) * 100, 100) if ram_speed else 0
+        disk_score = min((disk_speed / 500) * 100, 100) if disk_speed else 0
         overall_score = round(cpu_score + gpu_score + ram_score + disk_score, 2)
+
 
         # 5️⃣ Save Benchmark
         benchmark, _ = Benchmark.objects.update_or_create(
@@ -84,6 +86,8 @@ def run_benchmark(request):
                 "type": bench_type,
                 "cpu_score": cpu_score,
                 "gpu_score": gpu_score,
+                "ram_score": ram_score,
+                "disk_score": disk_score,
                 "overall_score": overall_score,
                 "avg_temp": avg_temp,
                 "ram_gb": ram_gb,
