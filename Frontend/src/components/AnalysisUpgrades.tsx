@@ -191,7 +191,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
             <motion.div animate={{ filter: ['drop-shadow(0 0 5px #9333ea)', 'drop-shadow(0 0 15px #9333ea)', 'drop-shadow(0 0 5px #9333ea)'] }} transition={{ duration: 2, repeat: Infinity }}>
               <TrendingUp className="w-6 h-6 text-purple-500" />
             </motion.div>
-            <h3 className="text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>PERFORMANCE SCORES</h3>
+            <h3 className="text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>SYSTEM SCORES</h3>
           </div>
           <div className="space-y-4">
             {latest ? (
@@ -302,7 +302,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
 })}
 
           <p className="text-gray-400 text-xs mt-3 text-center">
-            Based on average results from community benchmarks.
+            Based on average results from similar PC components.
           </p>
         </div>
       ) : (
@@ -332,7 +332,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
       fontFamily: 'Orbitron, sans-serif',
     }}
   >
-    UPGRADE RECOMMENDATIONS
+    LIMITING FACTOR
   </h3>
 </div>
 
@@ -358,10 +358,10 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
                 {item.component}
               </div>
 
-              <div className="text-gray-400 text-xs uppercase">Current</div>
+              <div className="text-gray-400 text-xs uppercase">Model</div>
               <div className="text-white text-sm">{item.current}</div>
 
-              <div className="text-gray-400 text-xs uppercase">Recommended</div>
+              <div className="text-gray-400 text-xs uppercase">Suggestion</div>
               <div className="text-white text-sm">{item.recommended}</div>
 
         
@@ -379,7 +379,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
       <Card className="bg-[#1a1a1a] border-2 border-red-600 p-4" style={{ boxShadow: '0 0 30px rgba(255,0,0,0.4),0 0 60px rgba(255,0,0,0.2)' }}>
         <Tabs defaultValue="results" className="w-full">
           <TabsList className="bg-black border border-red-600/30">
-            <TabsTrigger value="results" className="data-[state=active]:bg-red-600 data-[state=active]:text-white text-gray-400">My Benchmarks</TabsTrigger>
+            <TabsTrigger value="results" className="data-[state=active]:bg-red-600 data-[state=active]:text-white text-gray-400">Benchmarks</TabsTrigger>
             <TabsTrigger value="reviews" className="data-[state=active]:bg-red-600 data-[state=active]:text-white text-gray-400">Community Reviews</TabsTrigger>
           </TabsList>
 
@@ -425,34 +425,37 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
             </div>
           </div>
 
-          {/* ✅ Clean formatted system scores */}
-          <div className="mt-2 border-t border-gray-700 pt-3 space-y-1 text-xs">
-  {[
-    { label: 'CPU', value: result.cpu_model, score: result.cpu_score },
-    { label: 'GPU', value: result.gpu_model, score: result.gpu_score },
-    {
-      label: 'RAM',
-      value: result.ram_type
-        ? `${result.ram_type} (${result.ram_gb ?? '?'}GB)`
-        : 'Standard',
-      score: result.ram_score,
-    },
-    { label: 'DISK', value: result.storage_type || 'Standard', score: result.disk_score },
-    { label: 'TEMP', value: `${result.avg_temp ?? '-'}°C`, score: null },
-  ].map((item, i) => (
-    <div key={i} className="flex justify-between">
-      <div className="text-gray-400 uppercase tracking-wide">
-        {item.label}
+{/* ✅ Clean formatted system scores */}
+<div className="mt-2 border-t border-gray-700 pt-3 flex justify-center">
+  <div className="space-y-1 text-sm w-full max-w-xs">
+    {[
+      { label: 'CPU', value: result.cpu_model, score: result.cpu_score },
+      { label: 'GPU', value: result.gpu_model, score: result.gpu_score },
+      {
+        label: 'RAM',
+        value: result.ram_type
+          ? `${result.ram_type} (${result.ram_gb ?? '?'}GB)`
+          : 'Standard',
+        score: result.ram_score,
+      },
+      { label: 'DISK', value: result.storage_type || 'Standard', score: result.disk_score },
+      { label: 'TEMP', value: `${result.avg_temp ?? '-'}°C`, score: null },
+    ].map((item, i) => (
+      <div key={i} className="flex justify-between">
+        {/* Left: component + model */}
+        <span className="text-white font-medium flex-shrink-0">
+          {item.label} = <span className="text-gray-400">{item.value}</span>
+        </span>
+        {/* Right: score aligned vertically */}
+        <span className="text-white font-medium">
+          {item.score !== null ? item.score : ''}
+        </span>
       </div>
-      <div className="text-white font-medium">
-        {item.label} = {item.value}{' '}
-        {item.score !== null && (
-          <span className="text-gray-400">— ({item.score})</span>
-        )}
-      </div>
-    </div>
-  ))}
+    ))}
+  </div>
 </div>
+
+
 
         </motion.div>
       ))}
