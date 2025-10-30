@@ -269,7 +269,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
           fontFamily: 'Orbitron, sans-serif',
         }}
       >
-        PERFORMANCE COMPARISON (vs Community)
+        PERFORMANCE COMPARISON
       </h3>
     </div>
 
@@ -277,17 +277,30 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
       {throttleResult ? (
         <div className="space-y-2 text-sm">
           {Object.entries(throttleResult).map(([component, value]) => {
-            const percent = Number(value || 0);
-            return (
-              <div
-                key={component}
-                className="flex justify-between items-center border-b border-gray-800 pb-1"
-              >
-                <span className="text-gray-300">{component}</span>
-                <span className="text-white">{percent}% below avg</span>
-              </div>
-            );
-          })}
+  let percent = Number(value || 0);
+
+  // --- FIX for Intel iGPU ---
+  if (component === "GPU" && latest?.gpu_model?.toLowerCase().includes("intel")) {
+    percent = Number(throttleResult.CPU || latest.cpu_score || 0);
+  }
+
+  return (
+    <div
+      key={component}
+      className="flex justify-between items-center border-b border-gray-800 pb-1"
+    >
+      <span className="text-gray-300">{component}</span>
+<span className="text-white">
+  {percent < -5
+    ? `-${Math.abs(percent)}% (Bad)`
+    : percent > 5
+    ? `+${percent}% (Good)`
+    : `(As Expected)`}
+</span>
+    </div>
+  );
+})}
+
           <p className="text-gray-400 text-xs mt-3 text-center">
             Based on average results from community benchmarks.
           </p>
