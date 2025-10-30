@@ -252,32 +252,70 @@ const upgradeRecommendations = latest
       </div>
 
       {/* Throttle Result Card */}
-<Card className="bg-[#0f1724] border-2 border-cyan-600 p-6" style={{ boxShadow: '0 0 30px rgba(34,211,238,0.18),0 0 60px rgba(34,211,238,0.12)' }}>
-  <div className="flex items-center gap-3 mb-6">
-    <motion.div animate={{ filter: ['drop-shadow(0 0 5px #22d3ee)', 'drop-shadow(0 0 15px #22d3ee)', 'drop-shadow(0 0 5px #22d3ee)'] }} transition={{ duration: 2, repeat: Infinity }}>
-      <TrendingUp className="w-6 h-6 text-cyan-400" />
-    </motion.div>
-    <h3 className="text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>THROTTLE RESULT (vs Community)</h3>
-  </div>
-
-  {throttleResult ? (
-    <div className="space-y-2 text-sm">
-      {Object.entries(throttleResult).map(([component, value]) => {
-        const percent = Number(value || 0);
-        const colorClass = percent > 20 ? 'text-red-400' : percent > 10 ? 'text-yellow-400' : 'text-green-400';
-        return (
-          <div key={component} className="flex justify-between items-center">
-            <div className="text-gray-300">{component}</div>
-            <div className={colorClass}>{percent}% below avg</div>
-          </div>
-        );
-      })}
-      <div className="text-xs text-gray-400 mt-2">Comparison uses community averages from similar benchmarks.</div>
+{/* Throttle Result Card (Matching Upgrade Recommendation Style, Cyan Theme) */}
+<motion.div
+  whileHover={{
+    scale: 1.02,
+    boxShadow: '0 0 40px #22d3ee60, 0 0 80px #22d3ee30',
+  }}
+  whileTap={{ scale: 0.98 }}
+>
+  <Card
+    className="bg-[#1a1a1a] border-2 p-6"
+    style={{
+      borderColor: '#22d3ee',
+      boxShadow: '0 0 25px #22d3ee40, 0 0 50px #22d3ee20',
+    }}
+  >
+    <div className="flex items-center gap-3 mb-6">
+      <motion.div
+        animate={{
+          filter: [
+            'drop-shadow(0 0 5px #22d3ee)',
+            'drop-shadow(0 0 15px #22d3ee)',
+            'drop-shadow(0 0 5px #22d3ee)',
+          ],
+        }}
+        transition={{ duration: 1, repeat: Infinity }}
+      >
+        <TrendingUp className="w-6 h-6 text-cyan-400" />
+      </motion.div>
+      <h3
+        className="text-white"
+        style={{
+          fontFamily: 'Orbitron, sans-serif',
+        }}
+      >
+        PERFORMANCE COMPARISON (vs Community)
+      </h3>
     </div>
-  ) : (
-    <p className="text-gray-400 text-sm">Not enough community data to compute throttle results yet.</p>
-  )}
-</Card>
+
+    {throttleResult ? (
+      <div className="space-y-2 text-sm">
+        {Object.entries(throttleResult).map(([component, value]) => {
+          const percent = Number(value || 0);
+          return (
+            <div
+              key={component}
+              className="flex justify-between items-center border-b border-gray-800 pb-1"
+            >
+              <span className="text-gray-300">{component}</span>
+              <span className="text-white">{percent}% below avg</span>
+            </div>
+          );
+        })}
+        <p className="text-gray-400 text-xs mt-3 text-center">
+          Based on average results from community benchmarks.
+        </p>
+      </div>
+    ) : (
+      <p className="text-gray-400 text-sm text-center">
+        Not enough community data to compute throttle results yet.
+      </p>
+    )}
+  </Card>
+</motion.div>
+
 
 
       {/* Upgrade Recommendations */}
