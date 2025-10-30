@@ -289,17 +289,20 @@ const upgradeRecommendations = latest
         >
           <div className="flex justify-between items-start mb-2">
             <div>
-              <div className="text-white capitalize text-sm">
-             {result.username ? (
-             <span className="text-red-400 font-semibold" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              {result.username}
-           </span>
-           ) : (
-             'Anonymous'
-             )}
-             <span className="text-gray-400"> — {result.type} Benchmark</span>
-          </div>
 
+{/*Usernames */}
+  <div className="capitalize text-sm">
+  <span
+    className="text-white font-semibold"
+    style={{
+      fontFamily: "Orbitron, sans-serif",
+      textShadow: "0 0 10px #ff0033, 0 0 20px #ff0033",
+    }}
+  >
+    {result.username || "Anonymous"}
+  </span>
+  <span className="text-gray-400"> — {result.type} Benchmark</span>
+</div>
 
               <div className="text-gray-400 text-xs">
                 {new Date(result.timestamp).toLocaleString()}

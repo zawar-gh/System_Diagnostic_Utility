@@ -293,16 +293,17 @@ def live_metrics(request):
 def user_benchmarks(request):
     try:
         user = request.user
-        personal = list(Benchmark.objects.filter(user=user))
+        # Fetch personal and community benchmarks
+        personal = list(Benchmark.objects.filter(user=user).order_by("-timestamp"))
         community = list(Benchmark.objects.exclude(user=user).order_by("-overall_score")[:50])
-        benchmarks = personal + community  # ✅ Safe Python merge
 
-        # Optional: sort all by latest timestamp
-        benchmarks.sort(key=lambda b: b.timestamp, reverse=True)
+        # ✅ Merge with user benchmarks first
+        benchmarks = personal + community
 
         serializer = BenchmarkSerializer(benchmarks, many=True)
         data = serializer.data
 
+        # Add helper fields
         for b in data:
             b["ram_result"] = {"ram_speed_gbps": b.get("ram_speed_gbps")}
             b["disk_result"] = {
