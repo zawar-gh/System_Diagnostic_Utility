@@ -78,12 +78,13 @@ def run_benchmark(request):
 
 
         # 5️⃣ Save Benchmark
-        benchmark, _ = Benchmark.objects.update_or_create(
+        # after Benchmark.objects.create(...)
+        benchmark, created = Benchmark.objects.update_or_create(
             user=user,
-            cpu_model=cpu_model,
-            gpu_model=gpu_model,
             defaults={
                 "type": bench_type,
+                "cpu_model": cpu_model,
+                "gpu_model": gpu_model,
                 "cpu_score": cpu_score,
                 "gpu_score": gpu_score,
                 "ram_score": ram_score,
@@ -92,11 +93,19 @@ def run_benchmark(request):
                 "avg_temp": avg_temp,
                 "ram_gb": ram_gb,
                 "ram_speed_gbps": ram_speed,
-                "disk_read_speed": disk_speed,   # Using same value for simplicity
+                "disk_read_speed": disk_speed,
                 "disk_write_speed": disk_speed,
                 "disk_health_percent": min(100, max(30, (disk_speed / 400) * 100)),
             },
         )
+
+        # DEBUG: print who the server thinks is calling and benchmark id
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("run_benchmark called by user: id=%s username=%s", user.id, user.username)
+        logger.info("created benchmark id=%s for user_id=%s", benchmark.id, benchmark.user_id)
+        print("DEBUG run_benchmark:", {"caller_id": user.id, "caller_username": user.username, "benchmark_id": benchmark.id})
+
 
         BenchmarkMetric.objects.create(
          benchmark=benchmark,
@@ -137,11 +146,11 @@ def run_benchmark(request):
         # 8️⃣ Return Results
         data = BenchmarkSerializer(benchmark).data
         data.update({
+            "owner": {"id": benchmark.user_id, "username": benchmark.user.username},
             "ram_result": {"ram_speed_gbps": ram_speed},
             "disk_result": {"disk_speed": disk_speed},
             "bottleneckAnalysis": bottleneck_data,
         })
-
         return Response(data, status=status.HTTP_201_CREATED)
 
     except Exception as e:
