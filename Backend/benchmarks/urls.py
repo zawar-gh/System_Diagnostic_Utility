@@ -1,5 +1,6 @@
 #benchmarks/urls.py
 from django.urls import path
+from . import views
 from .views import (
     run_benchmark,
     live_metrics,
@@ -23,4 +24,7 @@ urlpatterns = [
 
     # Advanced bottleneck analysis & recommendations
     path("bottleneck/", bottleneck_analysis, name="bottleneck_analysis"),
+
+    path("community/", views.community_benchmarks, name="community_benchmarks"),
+
 ]

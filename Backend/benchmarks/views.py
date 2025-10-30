@@ -292,11 +292,17 @@ def live_metrics(request):
 @permission_classes([IsAuthenticated])
 def user_benchmarks(request):
     try:
-        benchmarks = Benchmark.objects.filter(user=request.user).order_by("-timestamp")
-        serializer = BenchmarkSerializer(benchmarks, many=True)
+        user = request.user
+        personal = list(Benchmark.objects.filter(user=user))
+        community = list(Benchmark.objects.exclude(user=user).order_by("-overall_score")[:50])
+        benchmarks = personal + community  # ✅ Safe Python merge
 
-        # ✅ Add ram_result and disk_result for frontend compatibility
+        # Optional: sort all by latest timestamp
+        benchmarks.sort(key=lambda b: b.timestamp, reverse=True)
+
+        serializer = BenchmarkSerializer(benchmarks, many=True)
         data = serializer.data
+
         for b in data:
             b["ram_result"] = {"ram_speed_gbps": b.get("ram_speed_gbps")}
             b["disk_result"] = {
@@ -305,6 +311,45 @@ def user_benchmarks(request):
             }
 
         return Response(data)
-
     except Exception as e:
+        import traceback; print(traceback.format_exc())
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+#  Community Benchmarks - Full Metrics
+# -----------------------------------------------
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def community_benchmarks(request):
+    """
+    Return latest benchmarks from all users with full metrics.
+    Optional query params: type, cpu_model, gpu_model
+    """
+    bench_type = request.query_params.get("type")
+    cpu_model = request.query_params.get("cpu_model")
+    gpu_model = request.query_params.get("gpu_model")
+
+    benchmarks = Benchmark.objects.all()
+
+    if bench_type:
+        benchmarks = benchmarks.filter(type=bench_type.lower())
+    if cpu_model:
+        benchmarks = benchmarks.filter(cpu_model__icontains=cpu_model)
+    if gpu_model:
+        benchmarks = benchmarks.filter(gpu_model__icontains=gpu_model)
+
+    benchmarks = benchmarks.order_by("-overall_score")[:100]  # limit to top 100
+
+    serializer = BenchmarkSerializer(benchmarks, many=True)
+    data = serializer.data
+
+    # Optional: add simplified RAM/Disk results for frontend
+    for b in data:
+        b["ram_result"] = {"ram_speed_gbps": b.get("ram_speed_gbps")}
+        b["disk_result"] = {
+            "read_speed": b.get("disk_read_speed"),
+            "write_speed": b.get("disk_write_speed"),
+        }
+
+    return Response(data)

@@ -12,9 +12,9 @@ class Benchmark(models.Model):
     cpu_model = models.CharField(max_length=200, default="Unknown CPU")
     gpu_model = models.CharField(max_length=200, default="Unknown GPU")
     ram_gb = models.FloatField(default=0)
-    ram_type = models.CharField(max_length=100, default="Unknown")
-    motherboard = models.CharField(max_length=200, default="Unknown MB")
-    storage_type = models.CharField(max_length=100, default="Unknown")
+    ram_type = models.CharField(max_length=100, default="Standard")
+    motherboard = models.CharField(max_length=200, default="N/A")
+    storage_type = models.CharField(max_length=100, default="Standard")
 
     # --- Performance Scores ---
     cpu_score = models.FloatField(default=0)

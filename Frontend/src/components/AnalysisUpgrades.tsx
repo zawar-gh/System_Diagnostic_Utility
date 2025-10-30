@@ -45,10 +45,11 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
 
         if (data.length > 0) {
           const latest = data[0];
-// --- Bottleneck fetch ---
+         
+         
+          // --- Bottleneck fetch ---
 const bottleneckResp = await API.get(`/benchmarks/bottleneck/?benchmark_id=${latest.id}`);
 const bottleneck = bottleneckResp.data;
-
 setBottleneckData([
   { name: 'CPU', value: Math.min(Math.round(bottleneck.component_scores?.CPU || latest.cpu_score || 0), 100), color: '#ff0033' },
   { name: 'GPU', value: Math.min(Math.round(bottleneck.component_scores?.GPU || latest.gpu_score || 0), 100), color: '#9333ea' },
@@ -142,7 +143,7 @@ const upgradeRecommendations = latest
           {
             id: 3,
             component: 'RAM',
-            current: `${latest.ram_gb ?? 'Unknown'} GB`,
+            current: `${latest.ram_gb ?? 'Standard'} GB`,
             recommended: 'Upgrade RAM if usage is high while CPU idle',
             boost: 10,
             color: '#22d3ee',
