@@ -8,6 +8,7 @@ import {
   Play,
   RotateCw,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -201,32 +202,65 @@ export function SystemOverview() {
         <DialogContent className="bg-[#0a0a0a] border-2 border-red-600 text-white max-w-3xl">
           <DialogHeader>
             <DialogTitle className="text-red-500">
-              {benchmarking ? "RUNNING BENCHMARK" : benchmarkResults ? "BENCHMARK RESULTS" : "SELECT BENCHMARK TYPE"}
+              {benchmarking ? "RUNNING BENCHMARK" : benchmarkResults ? "BENCHMARK RESULTS" : "START BENCHMARK"}
             </DialogTitle>
           </DialogHeader>
 
-          {!benchmarking && !benchmarkResults && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-6">
-              {[
-                { type: "CPU", icon: Cpu, gradient: "from-[#00ff99] to-[#00ffaa]", glow: "#00ffaa", desc: "Multi-core Stress Test" },
-                { type: "GPU", icon: Monitor, gradient: "from-[#00ccff] to-[#0099ff]", glow: "#00ccff", desc: "GPU Performance & Thermal Stability" },
-                { type: "System", icon: MemoryStick, gradient: "from-[#ff00ff] to-[#ff0099]", glow: "#ff00ff", desc: "CPU, GPU, RAM & Storage Test" },
-              ].map(({ type, icon: Icon, gradient, glow, desc }) => (
-                <motion.button
-                  key={type}
-                  onClick={() => handleBenchmark(type.toLowerCase())}
-                  whileHover={{ scale: 1.06, boxShadow: `0 0 25px ${glow}, 0 0 50px ${glow}40` }}
-                  whileTap={{ scale: 0.96 }}
-                  className={`relative h-36 p-4 flex flex-col justify-center items-center rounded-xl border border-white/10 bg-gradient-to-br ${gradient} text-white shadow-[0_0_20px_#00000040] transition-all duration-300 hover:border-white/30`}
-                  style={{ fontFamily: "Orbitron, sans-serif", textShadow: `0 0 6px ${glow}`, animation: "neonPulse 3s ease-in-out infinite", boxShadow: `0 0 15px ${glow}40` }}
-                >
-                  <Icon className="h-10 w-10 mb-2 drop-shadow-[0_0_10px_white]" />
-                  <span className="text-lg font-bold tracking-wide">{type}</span>
-                  <span className="text-[11px] mt-1 text-gray-200 opacity-80 text-center px-2">{desc}</span>
-                </motion.button>
-              ))}
-            </div>
-          )}
+         {!benchmarking && !benchmarkResults && (
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-6">
+    {[
+      {
+        type: "Test System",
+        icon: Monitor,
+        gradient: "from-[#00ffff] to-[#22d3ee]", // cyan gradient
+        glow: "#00ffff", // cyan glow
+        desc: "CPU, GPU, RAM & Storage Test",
+        clickable: true,
+      },
+      {
+        type: "Instructions",
+        icon: AlertTriangle,
+        desc: "Before running this test, please close all applications to ensure accurate results. Make sure no heavy background processes are running and your system is on stable power.",
+        clickable: false,
+      },
+    ].map(({ type, icon: Icon, gradient, glow, desc, clickable }) =>
+      clickable ? (
+        <motion.button
+          key={type}
+          onClick={() => handleBenchmark(type.toLowerCase())}
+          whileHover={{ scale: 1.06, boxShadow: `0 0 25px ${glow}, 0 0 50px ${glow}40` }}
+          whileTap={{ scale: 0.96 }}
+          className={`relative h-36 p-4 flex flex-col justify-center items-center rounded-xl border border-white/10 bg-gradient-to-br ${gradient} text-white shadow-[0_0_20px_#00000040] transition-all duration-300 hover:border-white/30`}
+          style={{
+            fontFamily: "Orbitron, sans-serif",
+            textShadow: `0 0 6px ${glow}`,
+            animation: "neonPulse 3s ease-in-out infinite",
+            boxShadow: `0 0 15px ${glow}40`,
+          }}
+        >
+          <Icon className="h-10 w-10 mb-2 drop-shadow-[0_0_10px_white] text-cyan-500" />
+          <span className="text-lg font-bold tracking-wide">{type}</span>
+          <span className="text-[11px] mt-1 text-gray-200 opacity-80 text-center px-2">{desc}</span>
+        </motion.button>
+      ) : (
+        <motion.div
+          key={type}
+          className={`relative h-36 p-4 flex flex-col justify-center items-center rounded-xl border border-white/10 bg-gradient-to-br ${gradient} text-white shadow-[0_0_20px_#00000040] transition-all duration-300`}
+          style={{
+            fontFamily: "Orbitron, sans-serif",
+            textShadow: `0 0 6px ${glow}`,
+            animation: "neonPulse 3s ease-in-out infinite",
+            boxShadow: `0 0 15px ${glow}40`,
+          }}
+        >
+          <Icon className="h-10 w-10 mb-2 drop-shadow-[0_0_10px_white] text-red-500" />
+          <span className="text-lg font-bold tracking-wide">{type}</span>
+          <span className="text-[11px] mt-1 text-gray-200 opacity-80 text-center px-2">{desc}</span>
+        </motion.div>
+      )
+    )}
+  </div>
+)}
 
           {benchmarking && (
             <div className="space-y-4 py-6">

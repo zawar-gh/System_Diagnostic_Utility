@@ -402,10 +402,9 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
 {/*Usernames */}
   <div className="capitalize text-sm">
   <span
-    className="text-white font-semibold"
+    className="text-red-500 font-semibold"
     style={{
       fontFamily: "Orbitron, sans-serif",
-      textShadow: "0 0 10px #ff0033, 0 0 20px #ff0033",
     }}
   >
     {result.username || "Anonymous"}
@@ -447,7 +446,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
           {item.label} = <span className="text-gray-400">{item.value}</span>
         </span>
         {/* Right: score aligned vertically */}
-        <span className="text-white font-medium">
+        <span className="text-cyan-500 font-medium">
           {item.score !== null ? item.score : ''}
         </span>
       </div>
