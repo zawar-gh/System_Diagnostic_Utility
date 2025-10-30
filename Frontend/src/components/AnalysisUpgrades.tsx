@@ -317,59 +317,34 @@ const upgradeRecommendations = latest
           </div>
 
           {/* ✅ Clean formatted system scores */}
-          <div className="mt-2 border-t border-gray-700 pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-            {/* CPU */}
-            <div>
-              <div className="text-gray-400 uppercase tracking-wide">CPU</div>
-              <div className="text-white font-medium">
-                {result.cpu_model || 'Standard'}{' '}
-                <span className="text-gray-400">—</span>{' '}
-                {result.cpu_score ?? '-'}
-              </div>
-            </div>
+          <div className="mt-2 border-t border-gray-700 pt-3 space-y-1 text-xs">
+  {[
+    { label: 'CPU', value: result.cpu_model, score: result.cpu_score },
+    { label: 'GPU', value: result.gpu_model, score: result.gpu_score },
+    {
+      label: 'RAM',
+      value: result.ram_type
+        ? `${result.ram_type} (${result.ram_gb ?? '?'}GB)`
+        : 'Standard',
+      score: result.ram_score,
+    },
+    { label: 'DISK', value: result.storage_type || 'Standard', score: result.disk_score },
+    { label: 'TEMP', value: `${result.avg_temp ?? '-'}°C`, score: null },
+  ].map((item, i) => (
+    <div key={i} className="flex justify-between">
+      <div className="text-gray-400 uppercase tracking-wide">
+        {item.label}
+      </div>
+      <div className="text-white font-medium">
+        {item.label} = {item.value}{' '}
+        {item.score !== null && (
+          <span className="text-gray-400">— ({item.score})</span>
+        )}
+      </div>
+    </div>
+  ))}
+</div>
 
-            {/* GPU */}
-            <div>
-              <div className="text-gray-400 uppercase tracking-wide">GPU</div>
-              <div className="text-white font-medium">
-                {result.gpu_model || 'Standard'}{' '}
-                <span className="text-gray-400">—</span>{' '}
-                {result.gpu_score ?? '-'}
-              </div>
-            </div>
-
-            {/* RAM */}
-            <div>
-              <div className="text-gray-400 uppercase tracking-wide">RAM</div>
-              <div className="text-white font-medium">
-                {result.ram_type
-                  ? `${result.ram_type} (${result.ram_gb ?? '?'}GB)`
-                  : 'Standard'}{' '}
-                <span className="text-gray-400">—</span>{' '}
-                {result.ram_score ?? '-'}
-              </div>
-            </div>
-
-            {/* DISK */}
-            <div>
-              <div className="text-gray-400 uppercase tracking-wide">DISK</div>
-              <div className="text-white font-medium">
-                {result.storage_type || 'Standard'}{' '}
-                <span className="text-gray-400">—</span>{' '}
-                {result.disk_score ?? '-'}
-              </div>
-            </div>
-
-            {/* TEMP */}
-            <div>
-              <div className="text-gray-400 uppercase tracking-wide">
-                AVG TEMP
-              </div>
-              <div className="text-white font-medium">
-                {result.avg_temp ?? '-'}°C
-              </div>
-            </div>
-          </div>
         </motion.div>
       ))}
     </div>
@@ -387,8 +362,12 @@ const upgradeRecommendations = latest
               </motion.div>
             </div>
 
-            <div className="space-y-3">
-              {reviews.map((review) => (
+            <div
+  className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"
+  style={{ scrollbarWidth: "thin", scrollbarColor: "#ff0033 #1a1a1a" }}
+>
+  {reviews.slice(0, 3).map((review) => (
+
                 <motion.div key={review.id} whileHover={{ backgroundColor: 'rgba(255,0,0,0.05)', boxShadow: '0 0 20px rgba(255,0,0,0.2)' }} className="bg-black/50 border border-gray-700 p-3 rounded">
                   <div className="flex justify-between items-start mb-2">
                     <div><div className="text-white text-sm">{review.user}</div><div className="text-gray-400 text-xs">{new Date(review.timestamp).toLocaleDateString()}</div></div>
