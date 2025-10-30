@@ -290,8 +290,17 @@ const upgradeRecommendations = latest
           <div className="flex justify-between items-start mb-2">
             <div>
               <div className="text-white capitalize text-sm">
-                {result.type} Benchmark
-              </div>
+             {result.username ? (
+             <span className="text-red-400 font-semibold" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+              {result.username}
+           </span>
+           ) : (
+             'Anonymous'
+             )}
+             <span className="text-gray-400"> — {result.type} Benchmark</span>
+          </div>
+
+
               <div className="text-gray-400 text-xs">
                 {new Date(result.timestamp).toLocaleString()}
               </div>
