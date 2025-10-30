@@ -22,7 +22,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [bottleneckData, setBottleneckData] = useState<any[]>([]);
   const [comparison, setComparison] = useState<any>(null);
-
+  const [throttleResult, setThrottleResult] = useState<any | null>(null);
   const [reviews, setReviews] = useState(() => {
     const saved = localStorage.getItem('sdu_reviews');
     return saved ? JSON.parse(saved) : [];
@@ -58,6 +58,14 @@ setBottleneckData([
   { name: 'Temp', value: Math.min(Math.round(latest.avg_temp || 0), 100), color: '#f59e0b' },
 ]);
 
+// --- Throttle result (community comparison) ---
+if (bottleneck && bottleneck.throttleResult) {
+  setThrottleResult(bottleneck.throttleResult);
+} else {
+  // fallback: try reading throttleResult directly from latest if backend supplied it there
+  setThrottleResult(latest?.throttleResult ?? null);
+}
+
 // --- Comparison fetch (unchanged) ---
 const compareResp = await API.get(`/benchmarks/compare/?cpu_model=${latest.cpu_model}&gpu_model=${latest.gpu_model}&ram_gb=${latest.ram_gb}`);
 setComparison(compareResp.data);
@@ -76,11 +84,14 @@ setComparison(compareResp.data);
       } finally {
         if (!cancelled) setLoading(false);
       }
+      
     };
+    
 
     fetchBenchmarks();
     return () => { cancelled = true; };
   }, [user]);
+  
 
   // --- Reviews handlers ---
   const handleAddReview = () => {
@@ -157,6 +168,7 @@ const upgradeRecommendations = latest
       <motion.h2 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-red-500" style={{ fontSize: '1.75rem', fontFamily: 'Orbitron, sans-serif', textShadow: '0 0 20px #ff0033, 0 0 40px #ff0033' }}>SYSTEM ANALYSIS</motion.h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
         {/* Bottleneck Card */}
         <Card className="bg-[#1a1a1a] border-2 border-red-600 p-6" style={{ boxShadow: '0 0 30px rgba(255,0,0,0.4), 0 0 60px rgba(255,0,0,0.2)' }}>
           <div className="flex items-center gap-3 mb-6">
@@ -189,8 +201,7 @@ const upgradeRecommendations = latest
     </span>
   </p>
 )}
-
-        </Card>
+ </Card>
 
         {/* Performance Scores Card */}
         <Card className="bg-[#1a1a1a] border-2 border-purple-600 p-6" style={{ boxShadow: '0 0 30px rgba(147,51,234,0.4),0 0 60px rgba(147,51,234,0.2)' }}>
@@ -222,7 +233,6 @@ const upgradeRecommendations = latest
     />
   </>
 )}
-
 {latest?.disk_result && (
   <>
     <div className="flex justify-between mb-2">
@@ -235,13 +245,40 @@ const upgradeRecommendations = latest
     />
   </>
 )}
-
-
-              </div>
+</div>
             ) : <p className="text-gray-400 text-sm">No benchmark data available.</p>}
           </div>
         </Card>
       </div>
+
+      {/* Throttle Result Card */}
+<Card className="bg-[#0f1724] border-2 border-cyan-600 p-6" style={{ boxShadow: '0 0 30px rgba(34,211,238,0.18),0 0 60px rgba(34,211,238,0.12)' }}>
+  <div className="flex items-center gap-3 mb-6">
+    <motion.div animate={{ filter: ['drop-shadow(0 0 5px #22d3ee)', 'drop-shadow(0 0 15px #22d3ee)', 'drop-shadow(0 0 5px #22d3ee)'] }} transition={{ duration: 2, repeat: Infinity }}>
+      <TrendingUp className="w-6 h-6 text-cyan-400" />
+    </motion.div>
+    <h3 className="text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>THROTTLE RESULT (vs Community)</h3>
+  </div>
+
+  {throttleResult ? (
+    <div className="space-y-2 text-sm">
+      {Object.entries(throttleResult).map(([component, value]) => {
+        const percent = Number(value || 0);
+        const colorClass = percent > 20 ? 'text-red-400' : percent > 10 ? 'text-yellow-400' : 'text-green-400';
+        return (
+          <div key={component} className="flex justify-between items-center">
+            <div className="text-gray-300">{component}</div>
+            <div className={colorClass}>{percent}% below avg</div>
+          </div>
+        );
+      })}
+      <div className="text-xs text-gray-400 mt-2">Comparison uses community averages from similar benchmarks.</div>
+    </div>
+  ) : (
+    <p className="text-gray-400 text-sm">Not enough community data to compute throttle results yet.</p>
+  )}
+</Card>
+
 
       {/* Upgrade Recommendations */}
       <div>

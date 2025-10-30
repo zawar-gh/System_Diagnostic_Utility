@@ -2,8 +2,63 @@
 diagnostics/utils/bottleneck_analyzer.py
 Enhanced hardware bottleneck and upgrade suggestion system.
 """
-
 from statistics import mean
+from benchmarks.models import Benchmark
+
+def analyze_throttle(metrics: dict) -> dict:
+    """
+    Compare current user's component scores against community averages
+    (filtered by same CPU/GPU model if available).
+    Returns throttle percentage per component.
+    """
+    throttle = {"CPU": 0, "GPU": 0, "RAM": 0, "Storage": 0}
+    try:
+        cpu_score = float(metrics.get("cpu_score", 0))
+        gpu_score = float(metrics.get("gpu_score", 0))
+        ram_speed = float(metrics.get("ram_speed_gbps", 0))
+        disk_speed = float(metrics.get("disk_read_speed", 0))
+
+        cpu_model = metrics.get("cpu_model", "")
+        gpu_model = metrics.get("gpu_model", "")
+
+        # Prefer similar systems (same CPU + GPU model)
+        all_benchmarks = Benchmark.objects.filter(
+            cpu_model=cpu_model, gpu_model=gpu_model
+        )
+        if not all_benchmarks.exists():
+            all_benchmarks = Benchmark.objects.all()
+
+        # Helper: mean only valid nonzero values
+        def safe_mean(values):
+            valid = [v for v in values if v and v > 0]
+            return mean(valid) if valid else 0
+
+        cpu_avg = safe_mean([b.cpu_score for b in all_benchmarks])
+        gpu_avg = safe_mean([b.gpu_score for b in all_benchmarks])
+        ram_avg = safe_mean([b.ram_speed_gbps for b in all_benchmarks])
+        disk_avg = safe_mean([
+            (b.disk_read_speed + b.disk_write_speed) / 2
+            for b in all_benchmarks
+        ])
+
+        # If no averages found yet → skip
+        if not any([cpu_avg, gpu_avg, ram_avg, disk_avg]):
+            return throttle
+
+        # Calculate throttle % below average
+        def diff(user_val, avg_val):
+            return round(max(0, (avg_val - user_val) / avg_val * 100), 1) if avg_val else 0
+
+        return {
+            "CPU": diff(cpu_score, cpu_avg),
+            "GPU": diff(gpu_score, gpu_avg),
+            "RAM": diff(ram_speed, ram_avg),
+            "Storage": diff(disk_speed, disk_avg),
+        }
+
+    except Exception as e:
+        print("analyze_throttle error:", e)
+        return throttle
 
 
 def analyze_bottlenecks(metrics: dict) -> dict:

@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from users.models import UserSpecs
+from diagnostics.utils.bottleneck_analyzer import analyze_bottlenecks, analyze_throttle
 import GPUtil, psutil, time, os, tempfile, numpy as np, traceback
 from .utils import (
     run_cpu_stress_test,
@@ -142,6 +143,17 @@ def run_benchmark(request):
             "gpu_vram_gb": sysinfo.get("gpu", {}).get("vram", 0),
             "avg_temp": avg_temp,
         })
+        # 7️⃣.5 Throttle Analysis (Community-based)
+        throttle_result = analyze_throttle({
+            "cpu_score": cpu_score,
+            "gpu_score": gpu_score,
+            "ram_speed_gbps": ram_speed,
+            "disk_read_speed": disk_speed,
+            "cpu_model": cpu_model,
+            "gpu_model": gpu_model,
+        })
+
+
 
         # 8️⃣ Return Results
         data = BenchmarkSerializer(benchmark).data
@@ -150,6 +162,7 @@ def run_benchmark(request):
             "ram_result": {"ram_speed_gbps": ram_speed},
             "disk_result": {"disk_speed": disk_speed},
             "bottleneckAnalysis": bottleneck_data,
+            "throttleResult": throttle_result,
         })
         return Response(data, status=status.HTTP_201_CREATED)
 
@@ -173,7 +186,11 @@ def compare_benchmarks(request):
     ram_gb = float(request.query_params.get("ram_gb", 0))
 
     try:
-        all_benchmarks = Benchmark.objects.all()
+        # Filter community benchmarks by same CPU and GPU model
+        all_benchmarks = Benchmark.objects.filter(cpu_model=cpu_model, gpu_model=gpu_model)
+        if not all_benchmarks.exists():
+            # fallback to all benchmarks if none match
+            all_benchmarks = Benchmark.objects.all()
 
         # Safely compute averages — avoids StatisticsError when no data
         cpu_scores = [float(b.cpu_score) for b in all_benchmarks if b.cpu_score and b.cpu_score > 0]
@@ -228,11 +245,13 @@ def compare_benchmarks(request):
 @permission_classes([IsAuthenticated])
 def bottleneck_analysis(request):
     """
-    Returns a detailed bottleneck analysis for a given benchmark.
+    Returns detailed bottleneck and throttle analysis for a given benchmark.
     """
     benchmark_id = request.query_params.get("benchmark_id")
     try:
         benchmark = Benchmark.objects.get(id=benchmark_id)
+
+        # Bottleneck analysis
         bottleneck_data = analyze_bottlenecks({
             "cpu_score": benchmark.cpu_score,
             "gpu_score": benchmark.gpu_score,
@@ -242,10 +261,25 @@ def bottleneck_analysis(request):
             "total_ram_gb": benchmark.ram_gb,
             "avg_temp": benchmark.avg_temp,
         })
-        return Response(bottleneck_data)
+
+        # Community-based throttle analysis
+        throttle_data = analyze_throttle({
+            "cpu_score": benchmark.cpu_score,
+            "gpu_score": benchmark.gpu_score,
+            "ram_speed_gbps": getattr(benchmark, "ram_speed_gbps", 0),
+            "disk_read_speed": getattr(benchmark, "disk_read_speed", 0),
+            "cpu_model": benchmark.cpu_model,
+            "gpu_model": benchmark.gpu_model,
+        })
+
+        # Merge into one response
+        response_data = {**bottleneck_data, "throttleResult": throttle_data}
+        return Response(response_data, status=200)
+
     except Benchmark.DoesNotExist:
         return Response({"error": "Benchmark not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
+        import traceback; print(traceback.format_exc())
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
