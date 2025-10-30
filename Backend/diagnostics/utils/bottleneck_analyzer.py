@@ -9,7 +9,7 @@ def analyze_throttle(metrics: dict) -> dict:
     """
     Compare current user's component scores against community averages
     (filtered by same CPU/GPU model if available).
-    Returns throttle percentage per component.
+    Returns throttle percentage per component + identifies worst performer.
     """
     throttle = {"CPU": 0, "GPU": 0, "RAM": 0, "Storage": 0}
     try:
@@ -21,14 +21,13 @@ def analyze_throttle(metrics: dict) -> dict:
         cpu_model = metrics.get("cpu_model", "")
         gpu_model = metrics.get("gpu_model", "")
 
-        # Prefer similar systems (same CPU + GPU model)
+        # Prefer similar systems
         all_benchmarks = Benchmark.objects.filter(
             cpu_model=cpu_model, gpu_model=gpu_model
         )
         if not all_benchmarks.exists():
             all_benchmarks = Benchmark.objects.all()
 
-        # Helper: mean only valid nonzero values
         def safe_mean(values):
             valid = [v for v in values if v and v > 0]
             return mean(valid) if valid else 0
@@ -37,28 +36,47 @@ def analyze_throttle(metrics: dict) -> dict:
         gpu_avg = safe_mean([b.gpu_score for b in all_benchmarks])
         ram_avg = safe_mean([b.ram_speed_gbps for b in all_benchmarks])
         disk_avg = safe_mean([
-            (b.disk_read_speed + b.disk_write_speed) / 2
-            for b in all_benchmarks
+            (b.disk_read_speed + b.disk_write_speed) / 2 for b in all_benchmarks
         ])
 
-        # If no averages found yet → skip
         if not any([cpu_avg, gpu_avg, ram_avg, disk_avg]):
             return throttle
 
-        # Calculate throttle % below average
         def diff(user_val, avg_val):
             return round(max(0, (avg_val - user_val) / avg_val * 100), 1) if avg_val else 0
 
-        return {
+        throttle = {
             "CPU": diff(cpu_score, cpu_avg),
             "GPU": diff(gpu_score, gpu_avg),
             "RAM": diff(ram_speed, ram_avg),
             "Storage": diff(disk_speed, disk_avg),
         }
 
+        # ✅ Find component with lowest throttle %
+        # Filter out invalid or zero dips
+        valid_throttle = {k: v for k, v in throttle.items() if v is not None}
+
+        if valid_throttle:
+            # Pick the component with the **least dip** (smallest % below avg)
+            top_component = min(valid_throttle.items(), key=lambda x: x[1])
+            top_name, top_value = top_component
+        else:
+            top_name, top_value = None, 0
+
+
+        # ✅ Return both full data and top recommendation
+        return {
+            "all": throttle,
+            "top": {
+                "component": top_name,
+                "dip_percent": top_value,
+            }
+        }
+
     except Exception as e:
         print("analyze_throttle error:", e)
         return throttle
+
 
 
 def analyze_bottlenecks(metrics: dict) -> dict:

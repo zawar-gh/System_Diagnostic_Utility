@@ -273,7 +273,11 @@ def bottleneck_analysis(request):
         })
 
         # Merge into one response
-        response_data = {**bottleneck_data, "throttleResult": throttle_data}
+        response_data = {
+            **bottleneck_data,
+            "throttleResult": throttle_data.get("all", {}),
+            "topThrottle": throttle_data.get("top", {}),
+        }        
         return Response(response_data, status=200)
 
     except Benchmark.DoesNotExist:

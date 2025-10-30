@@ -1,7 +1,7 @@
 // components/AnalysisUpgrades.tsx
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { AlertTriangle, TrendingUp, Bookmark, MessageSquare, Edit2, Trash2 } from 'lucide-react';
+import { AlertTriangle, TrendingUp, MessageSquare, Edit2, Trash2 } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -30,6 +30,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
   const [newReview, setNewReview] = useState('');
   const [editingReview, setEditingReview] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [upgradeRecommendations, setUpgradeRecommendations] = useState<any[]>([]);
 
   // --- Fetch latest benchmarks ---
   useEffect(() => {
@@ -45,31 +46,58 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
 
         if (data.length > 0) {
           const latest = data[0];
-         
-         
+
           // --- Bottleneck fetch ---
-const bottleneckResp = await API.get(`/benchmarks/bottleneck/?benchmark_id=${latest.id}`);
-const bottleneck = bottleneckResp.data;
-setBottleneckData([
-  { name: 'CPU', value: Math.min(Math.round(bottleneck.component_scores?.CPU || latest.cpu_score || 0), 100), color: '#ff0033' },
-  { name: 'GPU', value: Math.min(Math.round(bottleneck.component_scores?.GPU || latest.gpu_score || 0), 100), color: '#9333ea' },
-  { name: 'RAM', value: Math.min(Math.round((bottleneck.component_scores?.RAM || latest.ram_gb * 3) || 0), 100), color: '#22d3ee' },
-  { name: 'Storage', value: Math.min(Math.round(bottleneck.component_scores?.Storage || 0), 100), color: '#10b981' },
-  { name: 'Temp', value: Math.min(Math.round(latest.avg_temp || 0), 100), color: '#f59e0b' },
-]);
+          const bottleneckResp = await API.get(`/benchmarks/bottleneck/?benchmark_id=${latest.id}`);
+          const bottleneck = bottleneckResp.data;
 
-// --- Throttle result (community comparison) ---
-if (bottleneck && bottleneck.throttleResult) {
-  setThrottleResult(bottleneck.throttleResult);
-} else {
-  // fallback: try reading throttleResult directly from latest if backend supplied it there
-  setThrottleResult(latest?.throttleResult ?? null);
-}
+          // Prepare bottleneck data for PieChart (numeric only)
+          setBottleneckData([
+            { name: 'CPU', value: Math.min(Math.round(bottleneck.component_scores?.CPU || latest.cpu_score || 0), 100), color: '#ff0033' },
+            { name: 'GPU', value: Math.min(Math.round(bottleneck.component_scores?.GPU || latest.gpu_score || 0), 100), color: '#9333ea' },
+            { name: 'RAM', value: Math.min(Math.round((bottleneck.component_scores?.RAM || latest.ram_gb * 3) || 0), 100), color: '#22d3ee' },
+            { name: 'Storage', value: Math.min(Math.round(bottleneck.component_scores?.Storage || 0), 100), color: '#10b981' },
+            { name: 'Temp', value: Math.min(Math.round(latest.avg_temp || 0), 100), color: '#f59e0b' },
+          ]);
 
-// --- Comparison fetch (unchanged) ---
-const compareResp = await API.get(`/benchmarks/compare/?cpu_model=${latest.cpu_model}&gpu_model=${latest.gpu_model}&ram_gb=${latest.ram_gb}`);
-setComparison(compareResp.data);
+          // --- Throttle result (community comparison) ---
+          if (bottleneck && bottleneck.throttleResult) {
+            setThrottleResult(bottleneck.throttleResult);
 
+            if (bottleneck && bottleneck.topThrottle) {
+              const top = bottleneck.topThrottle;
+              const isGpuIGPU = top.component === 'GPU' && latest.gpu_model?.toLowerCase().includes('intel');
+
+              setUpgradeRecommendations([
+                {
+                  id: 1,
+                  component: isGpuIGPU ? 'CPU' : top.component, // Suggest CPU instead of GPU for iGPU
+                  current: isGpuIGPU ? latest.cpu_model : latest?.[`${top.component.toLowerCase()}_model`] || 'Unknown',
+                  recommended: isGpuIGPU
+                    ? `Your CPU is the limiting factor for your Intel iGPU. Upgrade CPU instead.`
+                    : `Your ${top.component} is ${top.dip_percent}% below average. Upgrade recommended.`,
+                  boost: top.dip_percent,
+                  color:
+                    isGpuIGPU || top.component === 'CPU'
+                      ? '#ff0033'
+                      : top.component === 'GPU'
+                      ? '#9333ea'
+                      : top.component === 'RAM'
+                      ? '#22d3ee'
+                      : '#10b981',
+                },
+              ]);
+            }
+          } else {
+            // fallback: try reading throttleResult directly from latest if backend supplied it there
+            setThrottleResult(latest?.throttleResult ?? null);
+          }
+
+          // --- Comparison fetch ---
+          const compareResp = await API.get(
+            `/benchmarks/compare/?cpu_model=${latest.cpu_model}&gpu_model=${latest.gpu_model}&ram_gb=${latest.ram_gb}`
+          );
+          setComparison(compareResp.data);
         } else {
           setBottleneckData([
             { name: 'CPU', value: 0, color: '#ff0033' },
@@ -84,14 +112,11 @@ setComparison(compareResp.data);
       } finally {
         if (!cancelled) setLoading(false);
       }
-      
     };
-    
 
     fetchBenchmarks();
     return () => { cancelled = true; };
   }, [user]);
-  
 
   // --- Reviews handlers ---
   const handleAddReview = () => {
@@ -121,54 +146,14 @@ setComparison(compareResp.data);
     toast.success('Review deleted');
   };
 
-  const handleSaveWishlist = (item: any) => toast.success(`${item.recommended ?? item.component} added to wishlist`);
-
   const latest = benchmarks[0] ?? null;
 
-const upgradeRecommendations = latest
-  ? latest.bottleneckAnalysis?.recommendations?.length
-      ? latest.bottleneckAnalysis.recommendations.map((rec: string, index: number) => ({
-          id: index + 1,
-          component: latest.bottleneckAnalysis.likely_bottleneck || "System",
-          recommended: rec,
-          color: '#ff0033',
-          boost: 10 + Math.round(Math.random() * 20),
-        }))
-      : [
-          {
-            id: 1,
-            component: 'CPU',
-            current: latest.cpu_model || 'Unknown CPU',
-            recommended: 'Consider higher single-thread speed CPU',
-            boost: latest.cpu_score && latest.cpu_score < 200 ? 35 : 12,
-            color: '#ff0033',
-          },
-          {
-            id: 2,
-            component: 'GPU',
-            current: latest.gpu_model || 'Unknown GPU',
-            recommended: 'Consider next-tier GPU for rendering / gaming workloads',
-            boost: latest.gpu_score && latest.gpu_score < 100 ? 30 : 10,
-            color: '#9333ea',
-          },
-          {
-            id: 3,
-            component: 'RAM',
-            current: `${latest.ram_gb ?? 'Standard'} GB`,
-            recommended: 'Upgrade RAM if usage is high while CPU idle',
-            boost: 10,
-            color: '#22d3ee',
-          },
-        ]
-  : [];
-
-
+  // --- JSX Rendering ---
   return (
     <div className="space-y-6">
       <motion.h2 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-red-500" style={{ fontSize: '1.75rem', fontFamily: 'Orbitron, sans-serif', textShadow: '0 0 20px #ff0033, 0 0 40px #ff0033' }}>SYSTEM ANALYSIS</motion.h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
         {/* Bottleneck Card */}
         <Card className="bg-[#1a1a1a] border-2 border-red-600 p-6" style={{ boxShadow: '0 0 30px rgba(255,0,0,0.4), 0 0 60px rgba(255,0,0,0.2)' }}>
           <div className="flex items-center gap-3 mb-6">
@@ -177,7 +162,6 @@ const upgradeRecommendations = latest
             </motion.div>
             <h3 className="text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>BOTTLENECK DETECTION</h3>
           </div>
-
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={bottleneckData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${Math.round(value)}%`}>
@@ -186,22 +170,20 @@ const upgradeRecommendations = latest
             </PieChart>
           </ResponsiveContainer>
           {latest?.bottleneckAnalysis && (
-  <p className="text-gray-300 text-sm mt-3 text-center">
-    Overall System Health:{' '}
-    <span
-      className={
-        latest.bottleneckAnalysis.overall_health === 'Excellent'
-          ? 'text-green-400'
-          : latest.bottleneckAnalysis.overall_health === 'Moderate'
-          ? 'text-yellow-400'
-          : 'text-red-400'
-      }
-    >
-      {latest.bottleneckAnalysis.overall_health}
-    </span>
-  </p>
-)}
- </Card>
+            <p className="text-gray-300 text-sm mt-3 text-center">
+              Overall System Health:{' '}
+              <span className={
+                latest.bottleneckAnalysis.overall_health === 'Excellent'
+                  ? 'text-green-400'
+                  : latest.bottleneckAnalysis.overall_health === 'Moderate'
+                  ? 'text-yellow-400'
+                  : 'text-red-400'
+              }>
+                {latest.bottleneckAnalysis.overall_health}
+              </span>
+            </p>
+          )}
+        </Card>
 
         {/* Performance Scores Card */}
         <Card className="bg-[#1a1a1a] border-2 border-purple-600 p-6" style={{ boxShadow: '0 0 30px rgba(147,51,234,0.4),0 0 60px rgba(147,51,234,0.2)' }}>
@@ -211,57 +193,58 @@ const upgradeRecommendations = latest
             </motion.div>
             <h3 className="text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>PERFORMANCE SCORES</h3>
           </div>
-
           <div className="space-y-4">
             {latest ? (
               <div>
+                {/* CPU Score */}
                 <div className="flex justify-between mb-2"><span className="text-gray-400">CPU Score</span><span className="text-white">{latest.cpu_score}</span></div>
-                <Progress value={Math.min((latest.cpu_score ?? 0), 100)} className="h-3" />
-                <div className="flex justify-between mb-2"><span className="text-gray-400">GPU Score</span><span className="text-white">{latest.gpu_score}</span></div>
-                <Progress value={Math.min((latest.gpu_score ?? 0), 100)} className="h-3" />
+                <Progress value={Math.min(latest.cpu_score ?? 0, 100)} className="h-3" />
+
+                {/* GPU Score */}
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-400">GPU Score</span>
+                  <span className="text-white">
+                    {latest.gpu_model?.toLowerCase().includes("intel") ? "Same as CPU (iGPU)" : latest.gpu_score}
+                  </span>
+                </div>
+                <Progress
+                  value={Math.min(latest.gpu_score ?? 0, 100)}
+                  className="h-3"
+                />
+
+                {/* Other scores */}
                 <div className="flex justify-between mb-2"><span className="text-gray-400">Average Temp</span><span className="text-white">{latest.avg_temp}°C</span></div>
                 <Progress value={Math.min(latest.avg_temp ?? 0, 100)} className="h-3" />
                 {latest?.ram_result && (
-  <>
-    <div className="flex justify-between mb-2">
-      <span className="text-gray-400">RAM Speed</span>
-      <span className="text-white">{latest.ram_result.ram_speed_gbps} GB/s</span>
-    </div>
-    <Progress
-      value={Math.min(latest.ram_result.ram_speed_gbps ?? 0, 100)}
-      className="h-3"
-    />
-  </>
-)}
-{latest?.disk_result && (
-  <>
-    <div className="flex justify-between mb-2">
-      <span className="text-gray-400">Disk Speed</span>
-      <span className="text-white">{latest.disk_result.read_speed} MB/s</span>
-    </div>
-    <Progress
-      value={Math.min(latest.disk_result.read_speed ?? 0, 1000) / 10}
-      className="h-3"
-    />
-  </>
-)}
-</div>
+                  <>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-400">RAM Speed</span>
+                      <span className="text-white">{latest.ram_result.ram_speed_gbps} GB/s</span>
+                    </div>
+                    <Progress value={Math.min(latest.ram_result.ram_speed_gbps ?? 0, 100)} className="h-3" />
+                  </>
+                )}
+                {latest?.disk_result && (
+                  <>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-400">Disk Speed</span>
+                      <span className="text-white">{latest.disk_result.read_speed} MB/s</span>
+                    </div>
+                    <Progress value={Math.min(latest.disk_result.read_speed ?? 0, 1000) / 10} className="h-3" />
+                  </>
+                )}
+              </div>
             ) : <p className="text-gray-400 text-sm">No benchmark data available.</p>}
           </div>
         </Card>
       </div>
 
-      {/* Throttle Result Card */}
-{/* Throttle Result Card (Matching Upgrade Recommendation Style, Cyan Theme) */}
-<motion.div
-  whileHover={{
-    scale: 1.02,
-    boxShadow: '0 0 40px #22d3ee60, 0 0 80px #22d3ee30',
-  }}
-  whileTap={{ scale: 0.98 }}
->
+{/* PERFORMANCE COMPARISON + UPGRADE RECOMMENDATIONS (Aligned & Equal Height) */}
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  {/* Performance Comparison Card */}
+<div className="flex flex-col h-full">
   <Card
-    className="bg-[#1a1a1a] border-2 p-6"
+    className="bg-[#1a1a1a] border-2 flex flex-col h-full p-6"
     style={{
       borderColor: '#22d3ee',
       boxShadow: '0 0 25px #22d3ee40, 0 0 50px #22d3ee20',
@@ -290,58 +273,96 @@ const upgradeRecommendations = latest
       </h3>
     </div>
 
-    {throttleResult ? (
-      <div className="space-y-2 text-sm">
-        {Object.entries(throttleResult).map(([component, value]) => {
-          const percent = Number(value || 0);
-          return (
-            <div
-              key={component}
-              className="flex justify-between items-center border-b border-gray-800 pb-1"
-            >
-              <span className="text-gray-300">{component}</span>
-              <span className="text-white">{percent}% below avg</span>
-            </div>
-          );
-        })}
-        <p className="text-gray-400 text-xs mt-3 text-center">
-          Based on average results from community benchmarks.
+    <div className="flex-grow">
+      {throttleResult ? (
+        <div className="space-y-2 text-sm">
+          {Object.entries(throttleResult).map(([component, value]) => {
+            const percent = Number(value || 0);
+            return (
+              <div
+                key={component}
+                className="flex justify-between items-center border-b border-gray-800 pb-1"
+              >
+                <span className="text-gray-300">{component}</span>
+                <span className="text-white">{percent}% below avg</span>
+              </div>
+            );
+          })}
+          <p className="text-gray-400 text-xs mt-3 text-center">
+            Based on average results from community benchmarks.
+          </p>
+        </div>
+      ) : (
+        <p className="text-gray-400 text-sm text-center">
+          Not enough community data to compute throttle results yet.
         </p>
+      )}
+    </div>
+  </Card>
+</div>
+
+
+{/* Upgrade Recommendations Card */}
+<Card
+  className="bg-[#1a1a1a] border-2 border-red-600 p-6 flex flex-col h-full"
+  style={{
+    boxShadow: '0 0 30px rgba(255,0,0,0.4), 0 0 60px rgba(255,0,0,0.2)',
+  }}
+>
+{/* ⚪ Simple RED Title with ! Icon */}
+<div className="flex items-center gap-3 mb-6">
+  <AlertTriangle className="w-5 h-5 text-red-500" />
+  <h3
+    className="text-white"
+    style={{
+      fontSize: '1.10rem',
+      fontFamily: 'Orbitron, sans-serif',
+    }}
+  >
+    UPGRADE RECOMMENDATIONS
+  </h3>
+</div>
+
+  {/* ✅ Fixed Upgrade Logic (no hover motion) */}
+  <div className="flex-grow">
+    {upgradeRecommendations.length === 0 ? (
+      <div className="text-gray-400 p-3 text-sm">
+        Run a benchmark to get personalized upgrade suggestions.
       </div>
     ) : (
-      <p className="text-gray-400 text-sm text-center">
-        Not enough community data to compute throttle results yet.
-      </p>
-    )}
-  </Card>
-</motion.div>
+      <div className="space-y-6">
+        {upgradeRecommendations.map((item) => (
+          <div
+            key={item.id}
+            className="transition-all duration-300"
+          >
+            <div className="space-y-3">
+              <div className="text-gray-400 text-xs uppercase">Component</div>
+              <div
+                className="text-white text-sm"
+                style={{ fontFamily: 'Orbitron, sans-serif' }}
+              >
+                {item.component}
+              </div>
 
+              <div className="text-gray-400 text-xs uppercase">Current</div>
+              <div className="text-white text-sm">{item.current}</div>
 
+              <div className="text-gray-400 text-xs uppercase">Recommended</div>
+              <div className="text-white text-sm">{item.recommended}</div>
 
-      {/* Upgrade Recommendations */}
-      <div>
-        <h3 className="text-red-500 mb-4" style={{ fontSize: '1.25rem', fontFamily: 'Orbitron, sans-serif', textShadow: '0 0 20px #ff0033' }}>UPGRADE RECOMMENDATIONS</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {upgradeRecommendations.length === 0 ? <div className="text-gray-400 p-3">Run a benchmark to get personalized upgrade suggestions.</div> :
-            upgradeRecommendations.map(item => (
-              <motion.div key={item.id} whileHover={{ scale: 1.02, boxShadow: `0 0 40px ${item.color}60,0 0 80px ${item.color}30` }} whileTap={{ scale: 0.98 }}>
-                <Card className="bg-[#1a1a1a] border-2 p-4" style={{ borderColor: item.color, boxShadow: `0 0 25px ${item.color}40,0 0 50px ${item.color}20` }}>
-                  <div className="space-y-3">
-                    <div className="text-gray-400 text-xs">Component</div><div className="text-white text-sm" style={{ fontFamily: 'Orbitron, sans-serif' }}>{item.component}</div>
-                    <div className="text-gray-400 text-xs">Current</div><div className="text-white text-sm">{item.current}</div>
-                    <div className="text-gray-400 text-xs">Recommended</div><div className="text-white text-sm">{item.recommended}</div>
-                    <div className="flex justify-between items-center pt-3 border-t border-gray-700">
-                      <div className="text-gray-400 text-xs">Performance Boost</div><div className="text-green-500 text-sm">+{item.boost}%</div>
-                    </div>
-                 
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-        </div>
+        
+            </div>
+          </div>
+        ))}
       </div>
+    )}
+  </div>
+</Card>
 
-      {/* Results & Reviews */}
+
+{/* Results & Reviews */}
+</div>
       <Card className="bg-[#1a1a1a] border-2 border-red-600 p-4" style={{ boxShadow: '0 0 30px rgba(255,0,0,0.4),0 0 60px rgba(255,0,0,0.2)' }}>
         <Tabs defaultValue="results" className="w-full">
           <TabsList className="bg-black border border-red-600/30">
