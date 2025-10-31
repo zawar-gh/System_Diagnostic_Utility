@@ -25,15 +25,21 @@ interface SavedResultsModalProps {
 }
 
 export function SavedResultsModal({ open, onClose }: SavedResultsModalProps) {
-  const [savedResults, setSavedResults] = useState<BenchmarkResult[]>([]);
+  const [latestResult, setLatestResult] = useState<BenchmarkResult | null>(null);
 
   const fetchBenchmarks = async () => {
     try {
-      const { data } = await API.get('/benchmarks/');
-      setSavedResults(data);
+      const { data } = await API.get<BenchmarkResult[]>('/benchmarks/');
+      if (data.length > 0) {
+        // Sort by timestamp descending and pick the latest
+        const latest = data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        setLatestResult(latest);
+      } else {
+        setLatestResult(null);
+      }
     } catch (err) {
       toast.error('Failed to load benchmarks');
-      setSavedResults([]);
+      setLatestResult(null);
     }
   };
 
@@ -45,24 +51,22 @@ export function SavedResultsModal({ open, onClose }: SavedResultsModalProps) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-[#0a0a0a] border-2 border-red-600 max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-red-500 text-lg">Saved Benchmark Results</DialogTitle>
+          <DialogTitle className="text-red-500 text-lg">Saved Results</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-3">
-          {savedResults.length === 0 ? (
+          {!latestResult ? (
             <div className="text-gray-400 text-xs">No saved results yet</div>
           ) : (
-            savedResults.map((result) => (
-              <div key={result.id} className="bg-black/50 border border-red-600/30 p-2 rounded">
-                <div className="flex justify-between items-center mb-2">
-                  <div className="text-white text-xs capitalize">{result.type} Benchmark</div>
-                  <div className="text-red-500 text-xs">{new Date(result.timestamp).toLocaleDateString()}</div>
-                </div>
-                <div className="h-48">
-                  <BenchmarkChart data={result.metrics} />
-                </div>
+            <div key={latestResult.id} className="bg-black/50 border border-red-600/30 p-2 rounded">
+              <div className="flex justify-between items-center mb-2">
+                <div className="text-white text-xs capitalize">{latestResult.type} Benchmark</div>
+                <div className="text-red-500 text-xs">{new Date(latestResult.timestamp).toLocaleDateString()}</div>
               </div>
-            ))
+              <div className="h-48">
+                <BenchmarkChart data={latestResult.metrics} />
+              </div>
+            </div>
           )}
         </div>
       </DialogContent>
