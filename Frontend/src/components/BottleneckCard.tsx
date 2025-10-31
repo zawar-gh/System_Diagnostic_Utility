@@ -35,7 +35,7 @@ export function BottleneckCard({ bottleneckData, latest }: BottleneckCardProps) 
           className="text-white"
           style={{ fontFamily: "Orbitron, sans-serif" }}
         >
-          BOTTLENECK DETECTION
+          STRESS TEST ANALYSIS
         </h3>
       </div>
 

@@ -5,7 +5,7 @@ import { Card } from "./ui/card";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { MessageSquare, Edit2, Trash2 } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface ResultsReviewsTabsProps {
   user: any;
@@ -105,7 +105,7 @@ export function ResultsReviewsTabs({
                       </div>
                     </div>
                     <div
-                      className="text-red-500 text-sm"
+                      className="text-white text-sm"
                       style={{ fontFamily: "Orbitron, sans-serif" }}
                     >
                       {result.overall_score ?? "-"}

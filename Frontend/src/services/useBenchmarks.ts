@@ -53,7 +53,7 @@ export function useBenchmarks(user: any) {
                   current: isGpuIGPU ? latest.cpu_model : latest?.[`${top.component.toLowerCase()}_model`] || "Unknown",
                   recommended: isGpuIGPU
                     ? `Your CPU is the limiting factor for your Intel iGPU. Upgrade CPU instead.`
-                    : `Your ${top.component} is ${top.dip_percent}% below average. Upgrade recommended.`,
+                    : `Your ${top.component} is the Main Bottleneck in Your System, Upgrade recommended.`,
                   boost: top.dip_percent,
                   color:
                     isGpuIGPU || top.component === "CPU"

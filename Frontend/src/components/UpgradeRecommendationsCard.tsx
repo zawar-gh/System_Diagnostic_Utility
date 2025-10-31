@@ -22,11 +22,11 @@ export function UpgradeRecommendationsCard({
         <h3
           className="text-white"
           style={{
-            fontSize: "1.10rem",
+            fontSize: "1.0rem",
             fontFamily: "Orbitron, sans-serif",
           }}
         >
-          LIMITING FACTOR
+          BOTTLENECK DETECTOR
         </h3>
       </div>
 

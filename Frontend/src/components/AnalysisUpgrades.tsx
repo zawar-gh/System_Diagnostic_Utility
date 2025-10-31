@@ -1,7 +1,7 @@
 // src/components/AnalysisUpgrades.tsx
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { API } from "../api/axiosConfig";
 import "../index.css";
 
@@ -119,7 +119,7 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
                     : latest?.[`${top.component.toLowerCase()}_model`] || "Unknown",
                   recommended: isGpuIGPU
                     ? `Your CPU is the limiting factor for your Intel iGPU. Upgrade CPU instead.`
-                    : `Your ${top.component} is ${top.dip_percent}% below average. Upgrade recommended.`,
+                    : `Your ${top.component} is the Main Bottleneck in your System, Upgrade recommended.`,
                   boost: top.dip_percent,
                   color:
                     isGpuIGPU || top.component === "CPU"
