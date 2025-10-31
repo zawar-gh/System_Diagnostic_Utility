@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { BenchmarkChart } from './BenchmarkChart';
 import { API } from '../api/axiosConfig';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface BenchmarkMetric {
   time: number;

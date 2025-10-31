@@ -14,7 +14,7 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { BenchmarkChart } from "./BenchmarkChart";
 import { API } from "../api/axiosConfig";
 
@@ -48,7 +48,6 @@ export function SystemOverview() {
   const [chartData, setChartData] = useState<BenchmarkMetric[]>([]);
   const [benchmarkProgress, setBenchmarkProgress] = useState(0);
   const [benchmarkResults, setBenchmarkResults] = useState<BenchmarkResult | null>(null);
-  const [benchmarkType, setBenchmarkType] = useState<string>("cpu");
 
   const fetchSystemData = async (cache: boolean = true) => {
     setScanning(true);
@@ -72,8 +71,8 @@ export function SystemOverview() {
 
   const handleRescan = () => fetchSystemData();
 
-  const handleBenchmark = async (type: string) => {
-    setBenchmarkType(type);
+  const handleBenchmark = async () => {
+    const type = "system"; // always send the correct backend type
     setBenchmarking(true);
     setBenchmarkProgress(0);
     setChartData([]);
@@ -120,57 +119,54 @@ export function SystemOverview() {
     return <div className="text-green-400 font-mono">Loading system info...</div>;
 
   const SystemCard = ({ icon: Icon, title, data, color, usage }: any) => {
-  const fields = [
-    { key: "name", label: "NAME" },
-    { key: "version", label: "VERSION" },
-    { key: "build", label: "BUILD" },
-    { key: "model", label: "MODEL" },
-    { key: "cores", label: "CORES" },
-    { key: "threads", label: "THREADS" },
-    { key: "usage", label: "USAGE" },
-    { key: "total", label: "TOTAL" },
-    { key: "speed", label: "SPEED" },
-    { key: "type", label: "TYPE" },
-    { key: "size", label: "SIZE" },
-  ];
+    const fields = [
+      { key: "name", label: "NAME" },
+      { key: "version", label: "VERSION" },
+      { key: "build", label: "BUILD" },
+      { key: "model", label: "MODEL" },
+      { key: "cores", label: "CORES" },
+      { key: "threads", label: "THREADS" },
+      { key: "usage", label: "USAGE" },
+      { key: "total", label: "TOTAL" },
+      { key: "speed", label: "SPEED" },
+      { key: "type", label: "TYPE" },
+      { key: "size", label: "SIZE" },
+    ];
 
-  return (
-    <motion.div
-      whileHover={{ scale: 1.05, boxShadow: `0 0 50px ${color}80,0 0 80px ${color}40` }}
-      whileTap={{ scale: 0.98 }}
-    >
-      <Card
-        className="bg-[#0a0a0a] border-2 p-4 relative overflow-hidden h-full"
-        style={{ borderColor: color, boxShadow: `0 0 30px ${color}50,0 0 60px ${color}20` }}
+    return (
+      <motion.div
+        whileHover={{ scale: 1.05, boxShadow: `0 0 50px ${color}80,0 0 80px ${color}40` }}
+        whileTap={{ scale: 0.98 }}
       >
-        <div className="relative z-10">
-          {/* Icon and Title in Row */}
-          <div className="flex items-center mb-2">
-            <Icon className="h-6 w-6 mr-2 text-white" />
-            <h3
-              className="font-mono font-extrabold text-lg"
-              style={{ color, textShadow: `0 0 10px ${color}, 0 0 20px ${color}` }}
-            >
-              {title}
-            </h3>
+        <Card
+          className="bg-[#0a0a0a] border-2 p-4 relative overflow-hidden h-full"
+          style={{ borderColor: color, boxShadow: `0 0 30px ${color}50,0 0 60px ${color}20` }}
+        >
+          <div className="relative z-10">
+            <div className="flex items-center mb-2">
+              <Icon className="h-6 w-6 mr-2 text-white" />
+              <h3
+                className="font-mono font-extrabold text-lg"
+                style={{ color, textShadow: `0 0 10px ${color}, 0 0 20px ${color}` }}
+              >
+                {title}
+              </h3>
+            </div>
+            {fields.map(
+              ({ key, label }) =>
+                data[key] !== undefined && (
+                  <div key={key} className="flex justify-between text-xs font-mono mb-1">
+                    <span className="font-bold text-gray-300">{label}:</span>
+                    <span className="text-white">{data[key]}</span>
+                  </div>
+                )
+            )}
+            {usage !== undefined && <Progress value={usage} className="h-2" />}
           </div>
-
-          {/* Fields */}
-          {fields.map(
-            ({ key, label }) =>
-              data[key] !== undefined && (
-                <div key={key} className="flex justify-between text-xs font-mono mb-1">
-                  <span className="font-bold text-gray-300">{label}:</span>
-                  <span className="text-white">{data[key]}</span>
-                </div>
-              )
-          )}
-          {usage !== undefined && <Progress value={usage} className="h-2" />}
-        </div>
-      </Card>
-    </motion.div>
-  );
-};
+        </Card>
+      </motion.div>
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -188,7 +184,6 @@ export function SystemOverview() {
         </div>
       </div>
 
-      {/* System Info Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <SystemCard title="OS" data={systemData.os} color="#00ffff" icon={Monitor} />
         <SystemCard title="CPU" data={systemData.cpu} usage={systemData.cpu.usage} color="#ff0033" icon={Cpu} />
@@ -197,7 +192,6 @@ export function SystemOverview() {
         <SystemCard title="Storage" data={systemData.storage} usage={systemData.storage.usage} color="#10b981" icon={HardDrive} />
       </div>
 
-      {/* Benchmark Modal */}
       <Dialog open={showBenchmark} onOpenChange={setShowBenchmark}>
         <DialogContent className="bg-[#0a0a0a] border-2 border-red-600 text-white max-w-3xl">
           <DialogHeader>
@@ -206,61 +200,61 @@ export function SystemOverview() {
             </DialogTitle>
           </DialogHeader>
 
-         {!benchmarking && !benchmarkResults && (
-  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-6">
-    {[
-      {
-        type: "Test System",
-        icon: Monitor,
-        gradient: "from-[#00ffff] to-[#22d3ee]", // cyan gradient
-        glow: "#00ffff", // cyan glow
-        desc: "CPU, GPU, RAM & Storage Test",
-        clickable: true,
-      },
-      {
-        type: "Instructions",
-        icon: AlertTriangle,
-        desc: "Before running this test, please close all applications to ensure accurate results. Make sure no heavy background processes are running and your system is on stable power.",
-        clickable: false,
-      },
-    ].map(({ type, icon: Icon, gradient, glow, desc, clickable }) =>
-      clickable ? (
-        <motion.button
-          key={type}
-          onClick={() => handleBenchmark(type.toLowerCase())}
-          whileHover={{ scale: 1.06, boxShadow: `0 0 25px ${glow}, 0 0 50px ${glow}40` }}
-          whileTap={{ scale: 0.96 }}
-          className={`relative h-36 p-4 flex flex-col justify-center items-center rounded-xl border border-white/10 bg-gradient-to-br ${gradient} text-white shadow-[0_0_20px_#00000040] transition-all duration-300 hover:border-white/30`}
-          style={{
-            fontFamily: "Orbitron, sans-serif",
-            textShadow: `0 0 6px ${glow}`,
-            animation: "neonPulse 3s ease-in-out infinite",
-            boxShadow: `0 0 15px ${glow}40`,
-          }}
-        >
-          <Icon className="h-10 w-10 mb-2 drop-shadow-[0_0_10px_white] text-cyan-500" />
-          <span className="text-lg font-bold tracking-wide">{type}</span>
-          <span className="text-[11px] mt-1 text-gray-200 opacity-80 text-center px-2">{desc}</span>
-        </motion.button>
-      ) : (
-        <motion.div
-          key={type}
-          className={`relative h-36 p-4 flex flex-col justify-center items-center rounded-xl border border-white/10 bg-gradient-to-br ${gradient} text-white shadow-[0_0_20px_#00000040] transition-all duration-300`}
-          style={{
-            fontFamily: "Orbitron, sans-serif",
-            textShadow: `0 0 6px ${glow}`,
-            animation: "neonPulse 3s ease-in-out infinite",
-            boxShadow: `0 0 15px ${glow}40`,
-          }}
-        >
-          <Icon className="h-10 w-10 mb-2 drop-shadow-[0_0_10px_white] text-red-500" />
-          <span className="text-lg font-bold tracking-wide">{type}</span>
-          <span className="text-[11px] mt-1 text-gray-200 opacity-80 text-center px-2">{desc}</span>
-        </motion.div>
-      )
-    )}
-  </div>
-)}
+          {!benchmarking && !benchmarkResults && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-6">
+              {[
+                {
+                  type: "Test System",
+                  icon: Monitor,
+                  gradient: "from-[#00ffff] to-[#22d3ee]",
+                  glow: "#00ffff",
+                  desc: "CPU, GPU, RAM & Storage Test",
+                  clickable: true,
+                },
+                {
+                  type: "Instructions",
+                  icon: AlertTriangle,
+                  desc: "Before running this test, please close all applications to ensure accurate results. Make sure no heavy background processes are running and your system is on stable power.",
+                  clickable: false,
+                },
+              ].map(({ type, icon: Icon, gradient, glow, desc, clickable }) =>
+                clickable ? (
+                  <motion.button
+                    key={type}
+                    onClick={() => handleBenchmark()} // <-- fixed to always run "system"
+                    whileHover={{ scale: 1.06, boxShadow: `0 0 25px ${glow}, 0 0 50px ${glow}40` }}
+                    whileTap={{ scale: 0.96 }}
+                    className={`relative h-36 p-4 flex flex-col justify-center items-center rounded-xl border border-white/10 bg-gradient-to-br ${gradient} text-white shadow-[0_0_20px_#00000040] transition-all duration-300 hover:border-white/30`}
+                    style={{
+                      fontFamily: "Orbitron, sans-serif",
+                      textShadow: `0 0 6px ${glow}`,
+                      animation: "neonPulse 3s ease-in-out infinite",
+                      boxShadow: `0 0 15px ${glow}40`,
+                    }}
+                  >
+                    <Icon className="h-10 w-10 mb-2 drop-shadow-[0_0_10px_white] text-cyan-500" />
+                    <span className="text-lg font-bold tracking-wide">{type}</span>
+                    <span className="text-[11px] mt-1 text-gray-200 opacity-80 text-center px-2">{desc}</span>
+                  </motion.button>
+                ) : (
+                  <motion.div
+                    key={type}
+                    className={`relative h-36 p-4 flex flex-col justify-center items-center rounded-xl border border-white/10 bg-gradient-to-br ${gradient} text-white shadow-[0_0_20px_#00000040] transition-all duration-300`}
+                    style={{
+                      fontFamily: "Orbitron, sans-serif",
+                      textShadow: `0 0 6px ${glow}`,
+                      animation: "neonPulse 3s ease-in-out infinite",
+                      boxShadow: `0 0 15px ${glow}40`,
+                    }}
+                  >
+                    <Icon className="h-10 w-10 mb-2 drop-shadow-[0_0_10px_white] text-red-500" />
+                    <span className="text-lg font-bold tracking-wide">{type}</span>
+                    <span className="text-[11px] mt-1 text-gray-200 opacity-80 text-center px-2">{desc}</span>
+                  </motion.div>
+                )
+              )}
+            </div>
+          )}
 
           {benchmarking && (
             <div className="space-y-4 py-6">
@@ -281,7 +275,15 @@ export function SystemOverview() {
                 <div>Overall: {benchmarkResults.overall_score ?? "-"}</div>
               </div>
               <BenchmarkChart data={chartData} isRunning={false} />
-              <Button onClick={() => { setBenchmarkResults(null); setShowBenchmark(false); }} className="mt-4 bg-red-600 hover:bg-red-700">Close</Button>
+              <Button
+                onClick={() => {
+                  setBenchmarkResults(null);
+                  setShowBenchmark(false);
+                }}
+                className="mt-4 bg-red-600 hover:bg-red-700"
+              >
+                Close
+              </Button>
             </div>
           )}
         </DialogContent>
