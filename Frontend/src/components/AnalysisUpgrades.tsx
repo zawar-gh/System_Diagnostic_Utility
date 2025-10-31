@@ -1,4 +1,4 @@
-// components/AnalysisUpgrades.tsx
+// src/components/AnalysisUpgrades.tsx
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, TrendingUp, MessageSquare, Edit2, Trash2 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { Progress } from './ui/progress';
 import { toast } from 'sonner@2.0.3';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { API } from '../api/axiosConfig';
+import '../index.css';
 
 interface AnalysisUpgradesProps {
   user: any;
@@ -374,145 +375,237 @@ export function AnalysisUpgrades({ user }: AnalysisUpgradesProps) {
 </Card>
 
 
+
 {/* Results & Reviews */}
 </div>
-      <Card className="bg-[#1a1a1a] border-2 border-red-600 p-4" style={{ boxShadow: '0 0 30px rgba(255,0,0,0.4),0 0 60px rgba(255,0,0,0.2)' }}>
-        <Tabs defaultValue="results" className="w-full">
-          <TabsList className="bg-black border border-red-600/30">
-            <TabsTrigger value="results" className="data-[state=active]:bg-red-600 data-[state=active]:text-white text-gray-400">Benchmarks</TabsTrigger>
-            <TabsTrigger value="reviews" className="data-[state=active]:bg-red-600 data-[state=active]:text-white text-gray-400">Community Reviews</TabsTrigger>
-          </TabsList>
 
-          <TabsContent value="results" className="mt-4">
-  {benchmarks.length === 0 ? (
-    <div className="text-center text-gray-400 py-6 text-sm">
-      No benchmark results yet.
-    </div>
-  ) : (
-    <div className="space-y-3">
-      {benchmarks.map((result, index) => (
-        <motion.div
-          key={index}
-          className="bg-black/50 border border-red-600/30 p-3 rounded"
-          whileHover={{ boxShadow: '0 0 20px rgba(255,0,0,0.3)' }}
-        >
-          <div className="flex justify-between items-start mb-2">
-            <div>
-
-{/*Usernames */}
-  <div className="capitalize text-sm">
-  <span
-    className="text-red-500 font-semibold"
-    style={{
-      fontFamily: "Orbitron, sans-serif",
-    }}
-  >
-    {result.username || "Anonymous"}
-  </span>
-  <span className="text-gray-400"> — {result.type} Benchmark</span>
-</div>
-
-              <div className="text-gray-400 text-xs">
-                {new Date(result.timestamp).toLocaleString()}
-              </div>
-            </div>
-            <div
-              className="text-red-500 text-sm"
-              style={{ fontFamily: 'Orbitron, sans-serif' }}
-            >
-              {result.overall_score ?? '-'}
-            </div>
-          </div>
-
-{/* ✅ Clean formatted system scores */}
-<div className="mt-2 border-t border-gray-700 pt-3 flex justify-center">
-  <div className="space-y-1 text-sm w-full max-w-xs">
-    {[
-      { label: 'CPU', value: result.cpu_model, score: result.cpu_score },
-      { label: 'GPU', value: result.gpu_model, score: result.gpu_score },
-      {
-        label: 'RAM',
-        value: result.ram_type
-          ? `${result.ram_type} (${result.ram_gb ?? '?'}GB)`
-          : 'Standard',
-        score: result.ram_score,
-      },
-      { label: 'DISK', value: result.storage_type || 'Standard', score: result.disk_score },
-      { label: 'TEMP', value: `${result.avg_temp ?? '-'}°C`, score: null },
-    ].map((item, i) => (
-      <div key={i} className="flex justify-between">
-        {/* Left: component + model */}
-        <span className="text-white font-medium flex-shrink-0">
-          {item.label} = <span className="text-gray-400">{item.value}</span>
-        </span>
-        {/* Right: score aligned vertically */}
-        <span className="text-cyan-500 font-medium">
-          {item.score !== null ? item.score : ''}
-        </span>
-      </div>
-    ))}
-  </div>
-</div>
-
-
-
-        </motion.div>
-      ))}
-    </div>
-  )}
-</TabsContent>
-
-
-          <TabsContent value="reviews" className="mt-4">
-            <div className="mb-4">
-              <Textarea placeholder="Share your upgrade experience or recommendations..." value={newReview} onChange={(e) => setNewReview(e.target.value)} className="bg-black border-red-600/50 text-white mb-3 text-sm" />
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button onClick={handleAddReview} className="bg-red-600 hover:bg-red-700 text-white transition-all duration-300 text-sm">
-                  <MessageSquare className="mr-2 h-4 w-4" /> Post Review
-                </Button>
-              </motion.div>
-            </div>
-
-            <div
-  className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"
-  style={{ scrollbarWidth: "thin", scrollbarColor: "#ff0033 #1a1a1a" }}
+{/* ==================== RESULTS & REVIEWS ==================== */}
+<Card
+  className="bg-[#1a1a1a] border-2 border-red-600 p-4 overflow-visible"
+  style={{
+    boxShadow: '0 0 30px rgba(255,0,0,0.4), 0 0 60px rgba(255,0,0,0.2)',
+  }}
 >
-  {reviews.slice(0, 3).map((review) => (
+  <Tabs defaultValue="results" className="w-full">
+    {/* --- Tabs Header --- */}
+    <TabsList className="bg-black border border-red-600/30 flex justify-center">
+      <TabsTrigger
+        value="results"
+        className="data-[state=active]:bg-red-600 data-[state=active]:text-white text-gray-400 font-medium"
+      >
+        Benchmarks
+      </TabsTrigger>
+      <TabsTrigger
+        value="reviews"
+        className="data-[state=active]:bg-red-600 data-[state=active]:text-white text-gray-400 font-medium"
+      >
+        Community Reviews
+      </TabsTrigger>
+    </TabsList>
 
-                <motion.div key={review.id} whileHover={{ backgroundColor: 'rgba(255,0,0,0.05)', boxShadow: '0 0 20px rgba(255,0,0,0.2)' }} className="bg-black/50 border border-gray-700 p-3 rounded">
-                  <div className="flex justify-between items-start mb-2">
-                    <div><div className="text-white text-sm">{review.user}</div><div className="text-gray-400 text-xs">{new Date(review.timestamp).toLocaleDateString()}</div></div>
-                    {review.user === user.username && (
-                      <div className="flex gap-2">
-                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => { setEditingReview(review.id); setEditText(review.comment); }} className="text-cyan-500 hover:text-cyan-400">
-                          <Edit2 className="w-4 h-4" />
-                        </motion.button>
-                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleDeleteReview(review.id)} className="text-red-500 hover:text-red-400">
-                          <Trash2 className="w-4 h-4" />
-                        </motion.button>
-                      </div>
-                    )}
+    {/* ================= BENCHMARKS TAB ================= */}
+    <TabsContent value="results" className="mt-4">
+      {benchmarks.length === 0 ? (
+        <div className="text-center text-gray-400 py-6 text-sm">
+          No benchmark results yet.
+        </div>
+      ) : (
+        <div
+          className="space-y-3 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#ff0033 #0a0a0a',
+          }}
+        >
+          {benchmarks.map((result, index) => (
+            <motion.div
+              key={index}
+              className="bg-black/50 border border-red-600/30 p-3 rounded transition-all duration-300"
+              whileHover={{
+                boxShadow:
+                  '0 0 25px rgba(255,0,0,0.4), 0 0 50px rgba(255,0,0,0.2)',
+                scale: 1.01,
+              }}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <div className="capitalize text-sm">
+                    <span
+                      className="text-red-500 font-semibold"
+                      style={{ fontFamily: 'Orbitron, sans-serif' }}
+                    >
+                      {result.username || 'Anonymous'}
+                    </span>
+                    <span className="text-gray-400">
+                      {' '}— {result.type} Benchmark
+                    </span>
                   </div>
+                  <div className="text-gray-500 text-xs">
+                    {new Date(result.timestamp).toLocaleString()}
+                  </div>
+                </div>
 
-                  {editingReview === review.id ? (
-                    <div>
-                      <Textarea value={editText} onChange={(e) => setEditText(e.target.value)} className="bg-black border-red-600/50 text-white mb-2 text-sm" />
-                      <div className="flex gap-2">
-                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                          <Button onClick={() => handleEditReview(review.id)} className="bg-red-600 hover:bg-red-700 text-white" size="sm">Save</Button>
-                        </motion.div>
-                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                          <Button onClick={() => { setEditingReview(null); setEditText(''); }} variant="outline" size="sm">Cancel</Button>
-                        </motion.div>
-                      </div>
+                <div
+                  className="text-red-500 text-sm"
+                  style={{ fontFamily: 'Orbitron, sans-serif' }}
+                >
+                  {result.overall_score ?? '-'}
+                </div>
+              </div>
+
+              {/* Clean formatted results */}
+              <div className="mt-2 border-t border-gray-800 pt-3 flex justify-center">
+                <div className="space-y-1 text-sm w-full max-w-xs">
+                  {[
+                    { label: 'CPU', value: result.cpu_model, score: result.cpu_score },
+                    { label: 'GPU', value: result.gpu_model, score: result.gpu_score },
+                    {
+                      label: 'RAM',
+                      value: result.ram_type
+                        ? `${result.ram_type} (${result.ram_gb ?? '?'}GB)`
+                        : 'Standard',
+                      score: result.ram_score,
+                    },
+                    {
+                      label: 'DISK',
+                      value: result.storage_type || 'Standard',
+                      score: result.disk_score,
+                    },
+                    { label: 'TEMP', value: `${result.avg_temp ?? '-'}°C`, score: null },
+                  ].map((item, i) => (
+                    <div key={i} className="flex justify-between">
+                      <span className="text-white font-medium flex-shrink-0">
+                        {item.label} ={' '}
+                        <span className="text-gray-400">{item.value}</span>
+                      </span>
+                      <span className="text-red-500 font-medium">
+                        {item.score !== null ? item.score : ''}
+                      </span>
                     </div>
-                  ) : <p className="text-gray-300 text-sm">{review.comment}</p>}
-                </motion.div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </Card>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </TabsContent>
+
+    {/* ================= REVIEWS TAB ================= */}
+    <TabsContent value="reviews" className="mt-4">
+      {/* Review Input Section */}
+      <div className="mb-4">
+        <Textarea
+          placeholder="Share your upgrade experience or recommendations..."
+          value={newReview}
+          onChange={(e) => setNewReview(e.target.value)}
+          className="bg-black border border-red-600/50 text-white mb-3 text-sm focus:ring-1 focus:ring-red-600"
+        />
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <Button
+            onClick={handleAddReview}
+            className="bg-red-600 hover:bg-red-700 text-white transition-all duration-300 text-sm"
+          >
+            <MessageSquare className="mr-2 h-4 w-4" /> Post Review
+          </Button>
+        </motion.div>
+      </div>
+
+      {/* Review List Section */}
+      <div
+        className="space-y-3 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar"
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#ff0033 #0a0a0a',
+        }}
+      >
+        {reviews.length === 0 ? (
+          <p className="text-center text-gray-400 py-6 text-sm">
+            No community reviews yet.
+          </p>
+        ) : (
+          reviews.map((review) => (
+            <motion.div
+              key={review.id}
+              whileHover={{
+                backgroundColor: 'rgba(255,0,0,0.05)',
+                boxShadow:
+                  '0 0 25px rgba(255,0,0,0.3), 0 0 50px rgba(255,0,0,0.2)',
+                scale: 1.01,
+              }}
+              className="bg-black/50 border border-gray-800 p-3 rounded transition-all duration-300"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <div className="text-white text-sm">{review.user}</div>
+                  <div className="text-gray-400 text-xs">
+                    {new Date(review.timestamp).toLocaleDateString()}
+                  </div>
+                </div>
+
+                {review.user === user.username && (
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        setEditingReview(review.id);
+                        setEditText(review.comment);
+                      }}
+                      className="text-red-500 hover:text-red-400"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => handleDeleteReview(review.id)}
+                      className="text-red-500 hover:text-red-400"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </motion.button>
+                  </div>
+                )}
+              </div>
+
+              {/* Edit or Display */}
+              {editingReview === review.id ? (
+                <div>
+                  <Textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="bg-black border border-red-600/50 text-white mb-2 text-sm focus:ring-1 focus:ring-red-600"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleEditReview(review.id)}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      size="sm"
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditingReview(null);
+                        setEditText('');
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-300 text-sm">{review.comment}</p>
+              )}
+            </motion.div>
+          ))
+        )}
+      </div>
+    </TabsContent>
+  </Tabs>
+</Card>
     </div>
   );
 }

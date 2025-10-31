@@ -7,6 +7,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Upload } from "lucide-react";
 import { MatrixBackground } from "./MatrixBackground";
+import '../index.css';
 
 interface AuthScreenProps {
   onLogin: (user: any) => void;
@@ -153,6 +154,7 @@ export function AuthScreen({ onLogin, onSignup }: AuthScreenProps) {
                 onChange={(e) =>
                   setLoginData({ ...loginData, username: e.target.value })
                 }
+                className="!text-black !bg-white placeholder:text-gray-500"
                 required
               />
             </div>
@@ -164,6 +166,7 @@ export function AuthScreen({ onLogin, onSignup }: AuthScreenProps) {
                 onChange={(e) =>
                   setLoginData({ ...loginData, password: e.target.value })
                 }
+                className="!text-black !bg-white placeholder:text-gray-500"
                 required
               />
             </div>
