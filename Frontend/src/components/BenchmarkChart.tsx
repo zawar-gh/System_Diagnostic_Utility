@@ -1,4 +1,4 @@
-//BenchmarkChart.tsx
+// BenchmarkChart.tsx
 import {
   LineChart,
   Line,
@@ -17,6 +17,16 @@ interface BenchmarkChartProps {
 }
 
 export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
+  // Compute start time to show relative seconds
+  const startTime = data[0]?.time || 0;
+
+  const formatTime = (t: number) => {
+    const elapsed = t - startTime;
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = Math.floor(elapsed % 60);
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+  };
+
   return (
     <div className="w-full h-[400px] bg-[#0a0a0a] border border-red-500/30 rounded-2xl p-3 shadow-lg">
       <div className="flex items-center justify-between mb-2">
@@ -44,7 +54,7 @@ export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
             dataKey="time"
             stroke="#aaa"
             style={{ fontSize: "11px" }}
-            tickFormatter={(t) => `${t}s`}
+            tickFormatter={formatTime}
           />
           <YAxis
             stroke="#aaa"
@@ -59,6 +69,10 @@ export function BenchmarkChart({ data, isRunning }: BenchmarkChartProps) {
               fontSize: "12px",
             }}
             labelStyle={{ color: "#fff" }}
+            formatter={(value: any, name: string) =>
+              typeof value === "number" ? value.toFixed(2) : value
+            }
+            labelFormatter={(label: any) => `Time: ${formatTime(label)}`}
           />
           <Legend
             wrapperStyle={{
