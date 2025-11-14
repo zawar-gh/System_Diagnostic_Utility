@@ -4,7 +4,6 @@ import { AuthScreen } from "./components/AuthScreen";
 import { Dashboard } from "./components/Dashboard";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
-
 import { loginUser, signupUser, getProfile } from "./services/authService";
 
 export default function App() {

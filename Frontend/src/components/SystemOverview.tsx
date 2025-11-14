@@ -68,6 +68,36 @@ export function SystemOverview() {
     if (cachedData) setSystemData(JSON.parse(cachedData));
     else fetchSystemData();
   }, []);
+  useEffect(() => {
+  if (!systemData) return;
+
+  const interval = setInterval(async () => {
+    try {
+      const { data } = await API.get("/diagnostics/live/");
+
+      setSystemData((prev: any) => ({
+        ...prev,
+        cpu: {
+          ...prev.cpu,
+          usage: data.cpu, // live CPU %
+        },
+        ram: {
+          ...prev.ram,
+          usage: data.ram, // live RAM %
+        },
+        gpu: {
+          ...prev.gpu,
+          utilization: data.gpu, // live GPU %
+        },
+      }));
+    } catch (err) {
+      console.log("Live usage fetch failed", err);
+    }
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [systemData]);
+
 
   const handleRescan = () => fetchSystemData();
 
@@ -126,11 +156,11 @@ export function SystemOverview() {
       { key: "model", label: "MODEL" },
       { key: "cores", label: "CORES" },
       { key: "threads", label: "THREADS" },
-      { key: "usage", label: "USAGE" },
       { key: "total", label: "TOTAL" },
       { key: "speed", label: "SPEED" },
       { key: "type", label: "TYPE" },
       { key: "size", label: "SIZE" },
+      { key: "usage", label: "USAGE" },
     ];
 
     return (
@@ -152,15 +182,44 @@ export function SystemOverview() {
                 {title}
               </h3>
             </div>
-            {fields.map(
-              ({ key, label }) =>
-                data[key] !== undefined && (
-                  <div key={key} className="flex justify-between text-xs font-mono mb-1">
-                    <span className="font-bold text-gray-300">{label}:</span>
-                    <span className="text-white">{data[key]}</span>
-                  </div>
-                )
-            )}
+          {fields.map(({ key, label }) => {
+  if (data[key] === undefined) return null;
+
+  const isUsage =
+    key === "usage" || key === "utilization";
+
+  return (
+    <div key={key} className="flex justify-between text-xs font-mono mb-1">
+      <span className="font-bold text-gray-300">{label}:</span>
+
+{isUsage ? (
+  <span
+    className="font-bold"
+    style={{
+      color: "#22d3ee",
+      textShadow: "0 0 6px #22d3ee, 0 0 12px #22d3ee",
+    }}
+  >
+    {title === "Storage"
+      ? Math.round(
+          data.usage !== undefined
+            ? Number(data.usage)                              // backend-provided %
+            : data.used && data.total
+            ? (data.used / data.total) * 100                 // fallback
+            : 0
+        )
+      : Number(data[key])
+    }%
+  </span>
+) : (
+  <span className="text-white">{data[key]}</span>
+)}
+
+
+    </div>
+  );
+})}
+
             {usage !== undefined && <Progress value={usage} className="h-2" />}
           </div>
         </Card>
@@ -189,7 +248,17 @@ export function SystemOverview() {
         <SystemCard title="CPU" data={systemData.cpu} usage={systemData.cpu.usage} color="#ff0033" icon={Cpu} />
         <SystemCard title="GPU" data={systemData.gpu} usage={systemData.gpu.utilization} color="#9333ea" icon={Monitor} />
         <SystemCard title="RAM" data={systemData.ram} usage={systemData.ram.usage} color="#22d3ee" icon={MemoryStick} />
-        <SystemCard title="Storage" data={systemData.storage} usage={systemData.storage.usage} color="#10b981" icon={HardDrive} />
+<SystemCard
+  title="Storage"
+  data={systemData.storage}
+  usage={
+    systemData.storage.total
+      ? (systemData.storage.used / systemData.storage.total) * 100
+      : 0
+  }
+  color="#10b981"
+  icon={HardDrive}
+/>
       </div>
 
       <Dialog open={showBenchmark} onOpenChange={setShowBenchmark}>

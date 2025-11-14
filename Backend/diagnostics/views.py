@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .utils.system_collector import get_system_info
 from .utils.bottleneck_analyzer import analyze_bottlenecks
+from .utils.system_collector import get_live_usage
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])  # enforce JWT auth
@@ -25,3 +26,6 @@ def collect_system_info(request):
         "storage": system_data.get("storage", {}),
         "analysis": analysis
     })
+@api_view(["GET"])
+def live_usage(request):
+    return Response(get_live_usage())

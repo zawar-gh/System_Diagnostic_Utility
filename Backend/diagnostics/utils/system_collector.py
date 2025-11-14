@@ -1,5 +1,8 @@
 #diagnostics/utils/system_collector.py
 import psutil, platform, cpuinfo, wmi, pythoncom
+import os
+disk_path = os.environ.get("SystemDrive", "C:\\") + "\\"
+disk = psutil.disk_usage(disk_path)
 
 def format_value(value, unit=None):
     """Helper to format numeric values with units or handle missing ones."""
@@ -15,6 +18,21 @@ def format_value(value, unit=None):
         return str(value)
     except Exception:
         return "Standard"
+    
+def get_live_usage():
+    try:
+        cpu = psutil.cpu_percent(interval=0.2)  # fast, non-blocking
+        ram = psutil.virtual_memory().percent
+        gpu_usage = 0  # (Optional: fill later if needed)
+
+        return {
+            "cpu": cpu,
+            "ram": ram,
+            "gpu": gpu_usage,
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def get_system_info():
@@ -24,7 +42,10 @@ def get_system_info():
 
         cpu_usage = psutil.cpu_percent(interval=1)
         ram = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        # Use system drive (C:\ on Windows) instead of '/' for cross-platform safety
+        disk_path = os.environ.get("SystemDrive", "C:\\") + "\\"
+        disk = psutil.disk_usage(disk_path)
+
 
         system_info = {
             "os": {
@@ -47,7 +68,8 @@ def get_system_info():
             "storage": {
                 "type": "Standard",
                 "size": format_value(round(disk.total / (1024 ** 3), 2), " GB") if disk.total else "Standard",
-                "usage": format_value(disk.percent, "%"),
+                "used": round(disk.used / (1024 ** 3), 2),  # <-- new
+                "usage": disk.percent,
             },
         }
 
