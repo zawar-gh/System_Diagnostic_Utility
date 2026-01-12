@@ -87,15 +87,16 @@ export default function App() {
       className="min-h-screen flex items-center justify-center"
     >
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: [0.2, 1, 0.2] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className="text-center"
-      >
-        <h1 className="text-2xl sm:text-3xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-red-700 drop-shadow-[0_0_10px_#ff0000]">
-          Getting your system info...
-        </h1>
-      </motion.div>
+  initial={{ opacity: 0 }}
+  animate={{ opacity: [0.2, 1, 0.2] }}
+  transition={{ duration: 2, repeat: Infinity }}
+  className="text-center"
+>
+  <h1 className="text-5xl sm:text-6xl font-bold text-white drop-shadow-[0_0_10px_#ffffff]">
+    Getting your system info...
+  </h1>
+</motion.div>
+
     </motion.div>
   );
 }

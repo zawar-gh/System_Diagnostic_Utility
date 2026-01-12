@@ -150,9 +150,9 @@ export function SystemOverview() {
 
   const SystemCard = ({ icon: Icon, title, data, color, usage }: any) => {
     const fields = [
-      { key: "name", label: "NAME" },
-      { key: "version", label: "VERSION" },
+      { key: "name", label: "TYPE" },
       { key: "build", label: "BUILD" },
+      { key: "version", label: "VERSION" },
       { key: "model", label: "MODEL" },
       { key: "cores", label: "CORES" },
       { key: "threads", label: "THREADS" },
