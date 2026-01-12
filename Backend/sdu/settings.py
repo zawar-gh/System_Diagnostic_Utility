@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = '@secret_key122333'
 DEBUG = True
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['zawar.pythonanywhere.com']
 
 # -------------------------------------------------------------------
 # Apps
@@ -93,6 +93,8 @@ USE_TZ = True
 # Static Files
 # -------------------------------------------------------------------
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
